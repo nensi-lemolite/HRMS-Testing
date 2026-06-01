@@ -1,0 +1,10 @@
+{
+  "name": "hrms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HRMS monorepo (client + server) — multi-country (India + Qatar)",
+  "scripts": {
+    "render-build": "npm install --prefix server && npm install --prefix client && npm run build --prefix client",
+    "start": "npm start --prefix server"
+  }
+}

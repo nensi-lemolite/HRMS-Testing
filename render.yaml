@@ -1,0 +1,41 @@
+# Render Blueprint — deploys the HRMS app as a single web service that runs the
+# Express API and serves the built React client from the same origin.
+#
+# To deploy: push this repo to GitHub, then in the Render dashboard choose
+# "New +" → "Blueprint" and point it at this repo. Render reads this file.
+#
+# You must set two secret env vars in the dashboard (sync: false below):
+#   MONGO_URI     — your MongoDB Atlas connection string
+#   CLIENT_ORIGIN — the public URL Render assigns this service (https://<name>.onrender.com)
+services:
+  - type: web
+    name: hrms
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm run render-build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: DEFAULT_COUNTRY
+        value: IN
+      - key: MONGO_URI
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+    # ── Persistent uploads (optional) ────────────────────────────────────────
+    # The free plan has an EPHEMERAL filesystem: files written to /uploads are
+    # lost on every redeploy/restart. To persist uploaded photos & documents,
+    # upgrade `plan` above to `starter` (paid) and uncomment the block below,
+    # plus add an env var UPLOAD_DIR=/var/data/uploads.
+    #
+    # disk:
+    #   name: uploads
+    #   mountPath: /var/data
+    #   sizeGB: 1

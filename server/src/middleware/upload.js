@@ -2,8 +2,9 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const ApiError = require('../utils/ApiError');
+const env = require('../config/env');
 
-const UPLOAD_ROOT = path.join(__dirname, '..', '..', 'uploads');
+const UPLOAD_ROOT = env.uploadDir;
 const PHOTO_DIR = path.join(UPLOAD_ROOT, 'photos');
 const DOC_DIR = path.join(UPLOAD_ROOT, 'documents');
 

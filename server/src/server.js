@@ -53,6 +53,18 @@ app.use('/api/salary', salaryRoutes);
 app.use('/api/referrals', referralRoutes);
 app.use('/api/settings', settingsRoutes);
 
+// Serve the built React client from this same server (single-origin deploy).
+// API and upload routes are handled above; everything else falls back to the
+// SPA's index.html so client-side routing works on full-page loads/refreshes.
+if (env.serveClient) {
+  const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
+
 app.use(notFound);
 app.use(errorHandler);
 
