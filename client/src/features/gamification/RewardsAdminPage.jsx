@@ -1,5 +1,8 @@
+import { useState, useEffect } from 'react';
 import './gamification.css';
+import { useCelebrate } from './celebrate.jsx';
 import { earningRules, badgeTriggers, levelThresholds, rewardCatalog } from './data';
+import * as gapi from '../../api/gamification';
 
 function StatusBadge({ value }) {
   if (value === true) return <span className="badge active">On</span>;
@@ -8,7 +11,40 @@ function StatusBadge({ value }) {
   return <span className={'badge ' + cls}>{value}</span>;
 }
 
-export default function RewardsAdminPage() {
+const fmt = (v) => (typeof v === 'number' ? v.toLocaleString() : v);
+
+const demoModel = {
+  kpis: { issued: '48.2k', redeemed: '31.6k', activeBadges: 16, budget: '₹25k' },
+  earningRules, badgeTriggers, levelThresholds, rewardCatalog,
+};
+
+export default function RewardsAdminPage({ demo }) {
+  const { celebrate, Toast } = useCelebrate();
+  const [m, setM] = useState(demo ? demoModel : null);
+  const [state, setState] = useState(demo ? 'ready' : 'loading');
+  const [seeding, setSeeding] = useState(false);
+
+  function load() {
+    gapi.getRules().then((d) => { setM(d); setState('ready'); }).catch(() => setState('error'));
+  }
+  useEffect(() => { if (!demo) load(); }, [demo]);
+
+  async function doSeed() {
+    setSeeding(true);
+    try {
+      const d = await gapi.seedDemo();
+      celebrate(`Seeded ${d.seeded} employee profiles 🎲`);
+      load();
+    } catch {
+      celebrate('Seeding failed (admin only)');
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  if (state === 'error') return <div className="empty">Couldn’t load rewards admin.</div>;
+  if (state === 'loading' || !m) return <div className="empty">Loading…</div>;
+
   return (
     <>
       <div className="page-header">
@@ -16,13 +52,18 @@ export default function RewardsAdminPage() {
           <h1>Rewards admin 🎮</h1>
           <p className="muted">Configure how points, badges and rewards work — admins only.</p>
         </div>
+        {!demo && (
+          <button className="btn primary" onClick={doSeed} disabled={seeding}>
+            {seeding ? 'Seeding…' : '🎲 Seed demo data'}
+          </button>
+        )}
       </div>
 
       <div className="kpi-row">
-        <div className="kpi-card"><div className="kpi-label">Coins issued (MTD)</div><div className="kpi-value">48.2k</div></div>
-        <div className="kpi-card"><div className="kpi-label">Coins redeemed</div><div className="kpi-value">31.6k</div></div>
-        <div className="kpi-card"><div className="kpi-label">Active badges</div><div className="kpi-value">16</div></div>
-        <div className="kpi-card"><div className="kpi-label">Monthly budget</div><div className="kpi-value">₹25k</div></div>
+        <div className="kpi-card"><div className="kpi-label">Coins issued</div><div className="kpi-value">{fmt(m.kpis.issued)}</div></div>
+        <div className="kpi-card"><div className="kpi-label">Coins redeemed</div><div className="kpi-value">{fmt(m.kpis.redeemed)}</div></div>
+        <div className="kpi-card"><div className="kpi-label">Active badges</div><div className="kpi-value">{m.kpis.activeBadges}</div></div>
+        <div className="kpi-card"><div className="kpi-label">Monthly budget</div><div className="kpi-value">{m.kpis.budget}</div></div>
       </div>
 
       <h2 style={{ margin: '4px 0 12px' }}>Earning rules</h2>
@@ -30,7 +71,7 @@ export default function RewardsAdminPage() {
         <table className="modern-table">
           <thead><tr><th>Event</th><th>XP</th><th>Coins</th><th>Cap</th><th>Status</th></tr></thead>
           <tbody>
-            {earningRules.map((r) => (
+            {m.earningRules.map((r) => (
               <tr key={r.event}>
                 <td>{r.event}</td><td>{r.xp}</td><td>{r.coins}</td><td>{r.cap}</td>
                 <td><StatusBadge value={r.on} /></td>
@@ -44,7 +85,7 @@ export default function RewardsAdminPage() {
         <div className="card">
           <div className="card-head"><h2>Badge triggers</h2></div>
           <ul className="gm-goals">
-            {badgeTriggers.map((b) => (
+            {m.badgeTriggers.map((b) => (
               <li key={b.name}><span>{b.emoji}</span> {b.name}<span className="g-val">{b.rule}</span></li>
             ))}
           </ul>
@@ -52,7 +93,7 @@ export default function RewardsAdminPage() {
         <div className="card">
           <div className="card-head"><h2>Level thresholds</h2></div>
           <ul className="gm-goals">
-            {levelThresholds.map((l) => (
+            {m.levelThresholds.map((l) => (
               <li key={l.level}>Level {l.level} · {l.name}<span className="g-val">{l.xp}</span></li>
             ))}
           </ul>
@@ -62,9 +103,9 @@ export default function RewardsAdminPage() {
       <h2 style={{ margin: '20px 0 12px' }}>Reward catalog</h2>
       <div className="card table-card">
         <table className="modern-table">
-          <thead><tr><th>Reward</th><th>Cost</th><th>Stock</th><th>Redeemed (MTD)</th><th>Status</th></tr></thead>
+          <thead><tr><th>Reward</th><th>Cost</th><th>Stock</th><th>Redeemed</th><th>Status</th></tr></thead>
           <tbody>
-            {rewardCatalog.map((r) => (
+            {m.rewardCatalog.map((r) => (
               <tr key={r.name}>
                 <td>{r.name}</td><td>🪙 {r.cost}</td><td>{r.stock}</td><td>{r.redeemed}</td>
                 <td><StatusBadge value={r.status} /></td>
@@ -73,6 +114,8 @@ export default function RewardsAdminPage() {
           </tbody>
         </table>
       </div>
+
+      {Toast}
     </>
   );
 }

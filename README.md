@@ -18,10 +18,12 @@ rules are injected per request; the product and UI are **India-first**.
 - 📊 **Analytics & RBAC** — reports/dashboards, 60+ granular permissions with role-aware, hide-not-disable navigation.
 - 🎨 **Emerald theme** with light/dark support.
 
-> Note: Core HR, attendance, leave, and payroll pages are API-backed. The
-> gamification, projects, and offboarding modules currently render from
-> front-end **dummy data** (`client/src/features/gamification/data.js`), so they
-> can be previewed with no backend.
+> Note: Core HR, attendance, leave, payroll, **and gamification are API-backed**.
+> Gamification has its own backend module — per-employee profiles, badge/level
+> rules, and `/api/gamification/*` routes (check-in, kudos, leaderboard, rewards,
+> redeem, admin rules, demo seeder). Projects & bench and Offboarding still
+> render from front-end dummy data. The `/demo` route uses dummy data throughout
+> so it works with no login.
 
 ## Stack
 
@@ -108,5 +110,5 @@ Pushing to `main` triggers an auto-deploy. Once live:
 - **Phase 2 — Time** — Attendance, timesheets, leave, holidays
 - **Phase 3 — Payroll & statutory (India)** — Payroll runs, payslips, PF/ESI/PT/TDS, gratuity, compliance exports
 - **Phase 4 — Talent lifecycle** — Recruitment (ATS), onboarding, offboarding + full & final settlement
-- **Phase 5 — Gamification & engagement** ✅ (front-end) — Points, badges, leaderboard, rewards; back this with real events/API next
+- **Phase 5 — Gamification & engagement** ✅ — Points, badges, levels, streaks, leaderboard, and a redeemable rewards store, all API-backed (`server/src/modules/gamification`)
 - **Phase 6 — Analytics & platform** — Dashboards, exports, PWA/mobile

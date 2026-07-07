@@ -25,6 +25,7 @@ const exitRoutes = require('./modules/exit/exit.routes');
 const salaryRoutes = require('./modules/salary/salary.routes');
 const referralRoutes = require('./modules/referral/referral.routes');
 const settingsRoutes = require('./modules/settings/settings.routes');
+const gamificationRoutes = require('./modules/gamification/gamification.routes');
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/exit', exitRoutes);
 app.use('/api/salary', salaryRoutes);
 app.use('/api/referrals', referralRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/gamification', gamificationRoutes);
 
 // Serve the built React client from this same server (single-origin deploy).
 // API and upload routes are handled above; everything else falls back to the

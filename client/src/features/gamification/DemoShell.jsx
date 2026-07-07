@@ -49,7 +49,7 @@ export default function DemoShell() {
       </div>
 
       <main className="main" style={{ maxWidth: 1120, margin: '0 auto' }}>
-        <Active />
+        <Active demo />
       </main>
     </div>
   );
