@@ -17,6 +17,14 @@ export const me = {
   badgesTotal: 16,
 };
 
+export const colleagues = [
+  { id: 'vt', name: 'Vikram Thomas' },
+  { id: 'pm', name: 'Priya Menon' },
+  { id: 'dn', name: 'Divya Nair' },
+  { id: 'sn', name: 'Sana N.' },
+  { id: 'rm', name: 'Ravi M.' },
+];
+
 export const weeklyGoals = [
   { icon: '🎯', label: 'Close 5 code reviews', value: '3 / 5', done: false },
   { icon: '📅', label: 'Submit timesheet on time', value: 'Done', done: true },

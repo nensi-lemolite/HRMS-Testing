@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './gamification.css';
 import { useCelebrate } from './celebrate.jsx';
-import { me as demoMe, weeklyGoals as demoGoals, recentWins as demoWins } from './data';
+import { me as demoMe, weeklyGoals as demoGoals, recentWins as demoWins, colleagues as demoColleagues } from './data';
 import * as gapi from '../../api/gamification';
 
 function demoModel() {
@@ -17,6 +17,7 @@ export default function MySpacePage({ demo }) {
   const { celebrate, Toast } = useCelebrate();
   const [model, setModel] = useState(demo ? demoModel() : null);
   const [state, setState] = useState(demo ? 'ready' : 'loading');
+  const [kudos, setKudos] = useState(null); // { list, sel } while the picker is open
 
   useEffect(() => {
     if (demo) return;
@@ -36,12 +37,25 @@ export default function MySpacePage({ demo }) {
       celebrate(d.awarded ? `Checked in! +${d.awarded.xp} XP 🎯` : 'Already checked in today ✅');
     } catch { celebrate('Check-in failed'); }
   }
-  async function doKudos() {
-    if (demo) return celebrate('Kudos sent! +5 XP 🤝');
+  async function openKudos() {
+    if (demo) {
+      return setKudos({ list: demoColleagues, sel: demoColleagues[0].id });
+    }
     try {
-      const d = await gapi.giveKudos();
+      const d = await gapi.getColleagues();
+      if (!d.colleagues.length) return celebrate('No colleagues to recognize yet');
+      setKudos({ list: d.colleagues, sel: d.colleagues[0].id });
+    } catch { celebrate('Could not load colleagues'); }
+  }
+  async function sendKudos() {
+    const { list, sel } = kudos;
+    const name = list.find((c) => c.id === sel)?.name;
+    setKudos(null);
+    if (demo) return celebrate(`Kudos sent to ${name}! +5 XP 🤝`);
+    try {
+      const d = await gapi.giveKudos(sel);
       setModel(d);
-      celebrate(`Kudos sent${d.to ? ' to ' + d.to : ''}! +${d.awarded.xp} XP 🤝`);
+      celebrate(`Kudos sent to ${d.to || name}! +${d.awarded.xp} XP 🤝`);
     } catch { celebrate('Could not send kudos'); }
   }
 
@@ -90,7 +104,7 @@ export default function MySpacePage({ demo }) {
             <Link className="btn" to="/leave">🌴 Apply leave</Link>
             <Link className="btn" to="/payroll">🧾 My payslip</Link>
             <Link className="btn" to="/rewards">🎁 Redeem coins</Link>
-            <button className="btn" onClick={doKudos}>🤝 Give kudos</button>
+            <button className="btn" onClick={openKudos}>🤝 Give kudos</button>
           </div>
 
           <div className="card-head" style={{ marginTop: 22 }}><h2>This week’s goals</h2></div>
@@ -117,6 +131,30 @@ export default function MySpacePage({ demo }) {
           )}
         </div>
       </div>
+
+      {kudos && (
+        <div className="modal-backdrop" onClick={() => setKudos(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon info">🤝</div>
+            <h2 style={{ marginBottom: 6 }}>Give kudos</h2>
+            <p className="muted" style={{ margin: '0 0 16px' }}>Recognize a colleague — they earn +5 XP.</p>
+            <div className="form">
+              <label>
+                Colleague
+                <select value={kudos.sel} onChange={(e) => setKudos({ ...kudos, sel: e.target.value })}>
+                  {kudos.list.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}{c.department ? ` · ${c.department}` : ''}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+              <button className="btn" onClick={() => setKudos(null)}>Cancel</button>
+              <button className="btn primary" onClick={sendKudos}>Send kudos</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {Toast}
     </>

@@ -4,7 +4,8 @@ import { usePerms } from '../hooks/usePerms';
 
 const NAV = [
   { section: 'Home' },
-  { to: '/me', label: 'My space', icon: '🏠', perm: null },
+  // Self-service home is for employees; a SUPER_ADMIN has no employee profile.
+  { to: '/me', label: 'My space', icon: '🏠', perm: null, hideForRoles: ['SUPER_ADMIN'] },
   { to: '/', label: 'Dashboard', icon: '⌂', end: true, perm: null },
 
   { section: 'People' },
@@ -20,9 +21,10 @@ const NAV = [
   { to: '/offboarding', label: 'Offboarding', icon: '↩', perm: null, hideForRoles: ['EMPLOYEE'] },
 
   { section: 'Rewards' },
-  { to: '/achievements', label: 'Achievements', icon: '🏆', perm: null },
+  // Personal rewards views need an employee profile — hidden for SUPER_ADMIN.
+  { to: '/achievements', label: 'Achievements', icon: '🏆', perm: null, hideForRoles: ['SUPER_ADMIN'] },
   { to: '/leaderboard', label: 'Leaderboard', icon: '📊', perm: null },
-  { to: '/rewards', label: 'Rewards store', icon: '🎁', perm: null },
+  { to: '/rewards', label: 'Rewards store', icon: '🎁', perm: null, hideForRoles: ['SUPER_ADMIN'] },
   { to: '/rewards-admin', label: 'Rewards admin', icon: '🎮', perm: null, hideForRoles: ['EMPLOYEE', 'MANAGER'] },
 
   { section: 'More' },

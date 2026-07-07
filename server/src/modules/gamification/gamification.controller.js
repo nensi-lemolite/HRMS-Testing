@@ -120,16 +120,26 @@ const checkin = asyncHandler(async (req, res) => {
   res.json({ awarded, ...summarize(profile, emp.name), checkedInToday: true });
 });
 
-// POST /api/gamification/kudos  { to?: employeeId }
+// GET /api/gamification/colleagues — pickable recipients for kudos.
+const colleagues = asyncHandler(async (req, res) => {
+  const emp = await resolveEmployee(req);
+  const filter = { company: req.user.company, status: 'ACTIVE' };
+  if (emp) filter._id = { $ne: emp._id };
+  const list = await Employee.find(filter).select('name department').sort('name');
+  res.json({ colleagues: list.map((e) => ({ id: e._id, name: e.name, department: e.department || '' })) });
+});
+
+// POST /api/gamification/kudos  { to: employeeId }
 const kudos = asyncHandler(async (req, res) => {
   const giver = await resolveEmployee(req);
   if (!giver) throw new ApiError(400, 'Your account is not linked to an employee profile.');
 
-  let recipient = null;
-  if (req.body.to) recipient = await Employee.findOne({ _id: req.body.to, company: req.user.company });
-  if (!recipient) recipient = await Employee.findOne({ company: req.user.company, _id: { $ne: giver._id } });
+  if (!req.body.to) throw new ApiError(400, 'Pick a colleague to give kudos to.');
+  const recipient = await Employee.findOne({ _id: req.body.to, company: req.user.company });
+  if (!recipient) throw new ApiError(404, 'Colleague not found.');
+  if (String(recipient._id) === String(giver._id)) throw new ApiError(400, 'You cannot give kudos to yourself.');
 
-  if (recipient && String(recipient._id) !== String(giver._id)) {
+  {
     const rp = await getOrCreate(req.user.company, recipient._id);
     applyAward(rp, 'KUDOS', `Kudos from ${giver.name}`);
     await rp.save();
@@ -302,4 +312,4 @@ const seedDemo = asyncHandler(async (req, res) => {
   res.json({ seeded: n });
 });
 
-module.exports = { me, checkin, kudos, award, leaderboard, badges, rewards, redeem, rules, seedDemo };
+module.exports = { me, checkin, colleagues, kudos, award, leaderboard, badges, rewards, redeem, rules, seedDemo };

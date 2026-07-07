@@ -3,6 +3,7 @@ const { authenticate, requireRole } = require('../../middleware/auth');
 const {
   me,
   checkin,
+  colleagues,
   kudos,
   award,
   leaderboard,
@@ -19,6 +20,7 @@ router.use(authenticate);
 // Self-service (any authenticated employee)
 router.get('/me', me);
 router.post('/checkin', checkin);
+router.get('/colleagues', colleagues);
 router.post('/kudos', kudos);
 router.post('/award', award);
 router.get('/leaderboard', leaderboard);
