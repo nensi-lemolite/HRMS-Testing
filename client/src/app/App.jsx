@@ -17,6 +17,14 @@ import ReportsPage from '../features/reports/ReportsPage';
 import RolesPage from '../features/roles/RolesPage';
 import SettingsPage from '../features/settings/SettingsPage';
 import ReferralsPage from '../features/referrals/ReferralsPage';
+import MySpacePage from '../features/gamification/MySpacePage';
+import AchievementsPage from '../features/gamification/AchievementsPage';
+import LeaderboardPage from '../features/gamification/LeaderboardPage';
+import RewardsStorePage from '../features/gamification/RewardsStorePage';
+import RewardsAdminPage from '../features/gamification/RewardsAdminPage';
+import ProjectsPage from '../features/projects/ProjectsPage';
+import OffboardingPage from '../features/exit/OffboardingPage';
+import DemoShell from '../features/gamification/DemoShell';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -31,8 +39,12 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterCompanyPage />} />
 
+      {/* Public demo — preview the new modules with dummy data, no login needed. */}
+      <Route path="/demo" element={<DemoShell />} />
+
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<DashboardPage />} />
+        <Route path="me" element={<MySpacePage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="employees/new" element={<EmployeeFormPage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
@@ -41,6 +53,12 @@ export default function App() {
         <Route path="leave" element={<LeavePage />} />
         <Route path="payroll" element={<PayrollPage />} />
         <Route path="payroll/:id" element={<PayrollRunPage />} />
+        <Route path="projects" element={<ProjectsPage />} />
+        <Route path="offboarding" element={<OffboardingPage />} />
+        <Route path="achievements" element={<AchievementsPage />} />
+        <Route path="leaderboard" element={<LeaderboardPage />} />
+        <Route path="rewards" element={<RewardsStorePage />} />
+        <Route path="rewards-admin" element={<RewardsAdminPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="referrals" element={<ReferralsPage />} />
         <Route path="roles" element={<RolesPage />} />
