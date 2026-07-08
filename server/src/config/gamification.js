@@ -88,6 +88,16 @@ function evaluateBadges(profile) {
   return [...earned];
 }
 
+// Editable defaults used to seed a company's GamificationConfig document.
+function defaultEarning() {
+  return Object.entries(EARNING)
+    .filter(([k]) => k !== 'KUDOS_GIVEN')
+    .map(([event, r]) => ({ event, label: r.label, xp: r.xp, coins: r.coins, cap: r.cap, on: !r.off }));
+}
+function defaultRewards() {
+  return REWARDS.map((r) => ({ key: r.key, emoji: r.emoji, name: r.name, cost: r.cost, stock: r.stock, active: true }));
+}
+
 module.exports = {
   EARNING,
   SELF_ACTIONS,
@@ -97,4 +107,6 @@ module.exports = {
   REWARDS,
   levelFromXp,
   evaluateBadges,
+  defaultEarning,
+  defaultRewards,
 };

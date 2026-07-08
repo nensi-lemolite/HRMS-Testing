@@ -10,4 +10,4 @@ export const getLeaderboard = () => api.get('/gamification/leaderboard').then((r
 export const getRewards = () => api.get('/gamification/rewards').then((r) => r.data);
 export const redeemReward = (key) => api.post(`/gamification/rewards/${key}/redeem`).then((r) => r.data);
 export const getRules = () => api.get('/gamification/rules').then((r) => r.data);
-export const seedDemo = () => api.post('/gamification/seed-demo').then((r) => r.data);
+export const updateConfig = (body) => api.put('/gamification/config', body).then((r) => r.data);

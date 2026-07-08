@@ -3,91 +3,138 @@ import './gamification.css';
 import { useCelebrate } from './celebrate.jsx';
 import * as gapi from '../../api/gamification';
 
-function StatusBadge({ value }) {
-  if (value === true) return <span className="badge active">On</span>;
-  if (value === false) return <span className="badge exited">Off</span>;
-  const cls = value === 'Active' ? 'active' : value === 'Low stock' ? 'warn' : 'exited';
-  return <span className={'badge ' + cls}>{value}</span>;
-}
-
 const fmt = (v) => (typeof v === 'number' ? v.toLocaleString() : v);
+const cell = { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: '#fff', font: 'inherit', fontSize: 13, color: 'var(--text)' };
 
 export default function RewardsAdminPage() {
-  const { Toast } = useCelebrate();
-  const [m, setM] = useState(null);
+  const { celebrate, Toast } = useCelebrate();
   const [state, setState] = useState('loading');
+  const [saving, setSaving] = useState(false);
+  const [earning, setEarning] = useState([]);
+  const [rewards, setRewards] = useState([]);
+  const [budget, setBudget] = useState('');
+  const [ref, setRef] = useState({ badges: [], levels: [], kpis: {} });
 
   function load() {
-    gapi.getRules().then((d) => { setM(d); setState('ready'); }).catch(() => setState('error'));
+    gapi.getRules()
+      .then((d) => {
+        setEarning(d.earning || []);
+        setRewards(d.rewards || []);
+        setBudget(d.budget || '');
+        setRef({ badges: d.badges || [], levels: d.levels || [], kpis: d.kpis || {} });
+        setState('ready');
+      })
+      .catch(() => setState('error'));
   }
   useEffect(() => { load(); }, []);
 
+  const setE = (i, k, v) => setEarning(earning.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const setR = (i, k, v) => setRewards(rewards.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const addReward = () => setRewards([...rewards, { key: '', emoji: '🎁', name: '', cost: 0, stock: '', active: true, redeemed: 0 }]);
+  const removeReward = (i) => setRewards(rewards.filter((_, idx) => idx !== i));
+
+  async function save() {
+    setSaving(true);
+    try {
+      await gapi.updateConfig({ earning, rewards, budget });
+      celebrate('Rewards settings saved ✅');
+      load();
+    } catch (e) {
+      celebrate(e?.response?.data?.error || 'Could not save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (state === 'error') return <div className="empty">Couldn’t load rewards admin.</div>;
-  if (state === 'loading' || !m) return <div className="empty">Loading…</div>;
+  if (state === 'loading') return <div className="empty">Loading…</div>;
 
   return (
     <>
       <div className="page-header">
         <div>
           <h1>Rewards admin 🎮</h1>
-          <p className="muted">Configure how points, badges and rewards work — admins only.</p>
+          <p className="muted">Edit how employees earn and spend points. Changes apply to everyone.</p>
         </div>
+        <button className="btn primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
       </div>
 
       <div className="kpi-row">
-        <div className="kpi-card"><div className="kpi-label">Coins issued</div><div className="kpi-value">{fmt(m.kpis.issued)}</div></div>
-        <div className="kpi-card"><div className="kpi-label">Coins redeemed</div><div className="kpi-value">{fmt(m.kpis.redeemed)}</div></div>
-        <div className="kpi-card"><div className="kpi-label">Active badges</div><div className="kpi-value">{m.kpis.activeBadges}</div></div>
-        <div className="kpi-card"><div className="kpi-label">Monthly budget</div><div className="kpi-value">{m.kpis.budget}</div></div>
+        <div className="kpi-card"><div className="kpi-label">Coins issued</div><div className="kpi-value">{fmt(ref.kpis.issued)}</div></div>
+        <div className="kpi-card"><div className="kpi-label">Coins redeemed</div><div className="kpi-value">{fmt(ref.kpis.redeemed)}</div></div>
+        <div className="kpi-card"><div className="kpi-label">Active badges</div><div className="kpi-value">{ref.kpis.activeBadges}</div></div>
+        <div className="kpi-card">
+          <div className="kpi-label">Monthly champion budget</div>
+          <input value={budget} onChange={(e) => setBudget(e.target.value)} style={{ ...cell, width: '100%', marginTop: 4 }} placeholder="₹25,000" />
+        </div>
       </div>
 
-      <h2 style={{ margin: '4px 0 12px' }}>Earning rules</h2>
+      <h2 style={{ margin: '4px 0 4px' }}>Earning rules</h2>
+      <p className="muted small" style={{ margin: '0 0 12px' }}>How many points each action gives, and whether it’s on.</p>
       <div className="card table-card">
         <table className="modern-table">
-          <thead><tr><th>Event</th><th>XP</th><th>Coins</th><th>Cap</th><th>Status</th></tr></thead>
+          <thead><tr><th>Event</th><th style={{ width: 90 }}>XP</th><th style={{ width: 90 }}>Coins</th><th style={{ width: 120 }}>Cap</th><th style={{ width: 70 }}>On</th></tr></thead>
           <tbody>
-            {m.earningRules.map((r) => (
+            {earning.map((r, i) => (
               <tr key={r.event}>
-                <td>{r.event}</td><td>{r.xp}</td><td>{r.coins}</td><td>{r.cap}</td>
-                <td><StatusBadge value={r.on} /></td>
+                <td>{r.label}</td>
+                <td><input type="number" value={r.xp} onChange={(e) => setE(i, 'xp', e.target.value)} style={{ ...cell, width: 74 }} /></td>
+                <td><input type="number" value={r.coins} onChange={(e) => setE(i, 'coins', e.target.value)} style={{ ...cell, width: 74 }} /></td>
+                <td><input value={r.cap} onChange={(e) => setE(i, 'cap', e.target.value)} style={{ ...cell, width: 104 }} /></td>
+                <td><input type="checkbox" checked={r.on !== false} onChange={(e) => setE(i, 'on', e.target.checked)} /></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="gm-2col" style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '22px 0 4px' }}>
+        <h2 style={{ margin: 0 }}>Reward catalog</h2>
+        <button className="btn" onClick={addReward}>＋ Add reward</button>
+      </div>
+      <p className="muted small" style={{ margin: '0 0 12px' }}>Perks employees redeem coins for. Leave stock blank for unlimited.</p>
+      <div className="card table-card">
+        <table className="modern-table">
+          <thead><tr><th style={{ width: 60 }}>Icon</th><th>Reward</th><th style={{ width: 100 }}>Cost</th><th style={{ width: 90 }}>Stock</th><th style={{ width: 90 }}>Redeemed</th><th style={{ width: 60 }}>Active</th><th style={{ width: 50 }}></th></tr></thead>
+          <tbody>
+            {rewards.length === 0 ? (
+              <tr><td colSpan="7"><div className="empty small">No rewards yet. Click “Add reward”.</div></td></tr>
+            ) : (
+              rewards.map((r, i) => (
+                <tr key={i}>
+                  <td><input value={r.emoji} onChange={(e) => setR(i, 'emoji', e.target.value)} style={{ ...cell, width: 44, textAlign: 'center' }} /></td>
+                  <td><input value={r.name} onChange={(e) => setR(i, 'name', e.target.value)} style={{ ...cell, width: '100%' }} placeholder="Company hoodie" /></td>
+                  <td><input type="number" value={r.cost} onChange={(e) => setR(i, 'cost', e.target.value)} style={{ ...cell, width: 84 }} /></td>
+                  <td><input type="number" value={r.stock == null ? '' : r.stock} onChange={(e) => setR(i, 'stock', e.target.value)} style={{ ...cell, width: 74 }} placeholder="∞" /></td>
+                  <td className="muted">{r.redeemed || 0}</td>
+                  <td><input type="checkbox" checked={r.active !== false} onChange={(e) => setR(i, 'active', e.target.checked)} /></td>
+                  <td><button className="btn ghost" onClick={() => removeReward(i)} title="Remove">🗑</button></td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="gm-2col" style={{ marginTop: 22 }}>
         <div className="card">
           <div className="card-head"><h2>Badge triggers</h2></div>
+          <p className="muted small" style={{ marginTop: -6 }}>Unlock conditions (fixed).</p>
           <ul className="gm-goals">
-            {m.badgeTriggers.map((b) => (
+            {ref.badges.map((b) => (
               <li key={b.name}><span>{b.emoji}</span> {b.name}<span className="g-val">{b.rule}</span></li>
             ))}
           </ul>
         </div>
         <div className="card">
           <div className="card-head"><h2>Level thresholds</h2></div>
+          <p className="muted small" style={{ marginTop: -6 }}>XP needed per level (fixed).</p>
           <ul className="gm-goals">
-            {m.levelThresholds.map((l) => (
+            {ref.levels.map((l) => (
               <li key={l.level}>Level {l.level} · {l.name}<span className="g-val">{l.xp}</span></li>
             ))}
           </ul>
         </div>
-      </div>
-
-      <h2 style={{ margin: '20px 0 12px' }}>Reward catalog</h2>
-      <div className="card table-card">
-        <table className="modern-table">
-          <thead><tr><th>Reward</th><th>Cost</th><th>Stock</th><th>Redeemed</th><th>Status</th></tr></thead>
-          <tbody>
-            {m.rewardCatalog.map((r) => (
-              <tr key={r.name}>
-                <td>{r.name}</td><td>🪙 {r.cost}</td><td>{r.stock}</td><td>{r.redeemed}</td>
-                <td><StatusBadge value={r.status} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
       {Toast}

@@ -11,7 +11,7 @@ const {
   rewards,
   redeem,
   rules,
-  seedDemo,
+  updateConfig,
 } = require('./gamification.controller');
 
 const router = express.Router();
@@ -30,6 +30,6 @@ router.post('/rewards/:key/redeem', redeem);
 
 // Admin console
 router.get('/rules', rules);
-router.post('/seed-demo', requireRole('SUPER_ADMIN', 'HR_ADMIN'), seedDemo);
+router.put('/config', requireRole('SUPER_ADMIN', 'HR_ADMIN'), updateConfig);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const GamificationProfile = require('../../models/GamificationProfile');
+const GamificationConfig = require('../../models/GamificationConfig');
 const Redemption = require('../../models/Redemption');
 const Employee = require('../../models/Employee');
 const User = require('../../models/User');
@@ -10,9 +11,10 @@ const {
   EVENT_EMOJI,
   LEVELS,
   BADGES,
-  REWARDS,
   levelFromXp,
   evaluateBadges,
+  defaultEarning,
+  defaultRewards,
 } = require('../../config/gamification');
 
 // ---- helpers ---------------------------------------------------------------
@@ -50,9 +52,37 @@ async function getOrCreate(company, employeeId) {
   return p;
 }
 
+// Load (or seed from code defaults) a company's editable gamification config.
+async function loadConfig(companyId) {
+  let cfg = await GamificationConfig.findOne({ company: companyId });
+  if (!cfg) {
+    cfg = await GamificationConfig.create({
+      company: companyId,
+      earning: defaultEarning(),
+      rewards: defaultRewards(),
+    });
+  }
+  return cfg;
+}
+
+// Effective earning rule for an action, honoring the company's config overrides.
+function ruleFor(cfg, type) {
+  const c = (cfg?.earning || []).find((e) => e.event === type);
+  const d = EARNING[type];
+  if (c) {
+    return {
+      xp: c.on ? Number(c.xp) || 0 : 0,
+      coins: c.on ? Number(c.coins) || 0 : 0,
+      counter: d?.counter,
+      label: c.label || d?.label || type,
+    };
+  }
+  return d ? { xp: d.xp, coins: d.coins, counter: d.counter, label: d.label } : null;
+}
+
 // Apply an earning rule to a profile doc (mutates; caller saves).
-function applyAward(profile, type, labelOverride) {
-  const rule = EARNING[type];
+function applyAward(profile, type, cfg, labelOverride) {
+  const rule = ruleFor(cfg, type);
   if (!rule) return { xp: 0, coins: 0, newBadges: [] };
   profile.xp += rule.xp;
   profile.coins += rule.coins;
@@ -108,7 +138,8 @@ const checkin = asyncHandler(async (req, res) => {
   }
   profile.streak = isYesterday(profile.lastCheckin) ? profile.streak + 1 : 1;
   profile.lastCheckin = new Date();
-  const awarded = applyAward(profile, 'CHECKIN');
+  const cfg = await loadConfig(req.user.company);
+  const awarded = applyAward(profile, 'CHECKIN', cfg);
   await profile.save();
   res.json({ awarded, ...summarize(profile, emp.name), checkedInToday: true });
 });
@@ -132,13 +163,14 @@ const kudos = asyncHandler(async (req, res) => {
   if (!recipient) throw new ApiError(404, 'Colleague not found.');
   if (String(recipient._id) === String(giver._id)) throw new ApiError(400, 'You cannot give kudos to yourself.');
 
+  const cfg = await loadConfig(req.user.company);
   {
     const rp = await getOrCreate(req.user.company, recipient._id);
-    applyAward(rp, 'KUDOS', `Kudos from ${giver.name}`);
+    applyAward(rp, 'KUDOS', cfg, `Kudos from ${giver.name}`);
     await rp.save();
   }
   const gp = await getOrCreate(req.user.company, giver._id);
-  const awarded = applyAward(gp, 'KUDOS_GIVEN', recipient ? `Gave kudos to ${recipient.name}` : 'Gave kudos');
+  const awarded = applyAward(gp, 'KUDOS_GIVEN', cfg, `Gave kudos to ${recipient.name}`);
   await gp.save();
   res.json({ awarded, to: recipient ? recipient.name : null, ...summarize(gp, giver.name) });
 });
@@ -150,7 +182,8 @@ const award = asyncHandler(async (req, res) => {
   const emp = await resolveEmployee(req);
   if (!emp) throw new ApiError(400, 'Your account is not linked to an employee profile.');
   const profile = await getOrCreate(req.user.company, emp._id);
-  const awarded = applyAward(profile, type);
+  const cfg = await loadConfig(req.user.company);
+  const awarded = applyAward(profile, type, cfg);
   await profile.save();
   res.json({ awarded, ...summarize(profile, emp.name) });
 });
@@ -209,8 +242,9 @@ const rewards = asyncHandler(async (req, res) => {
     const p = await getOrCreate(req.user.company, emp._id);
     coins = p.coins;
   }
+  const cfg = await loadConfig(req.user.company);
   const counts = await redeemedCounts(req.user.company);
-  const list = REWARDS.map((r) => {
+  const list = cfg.rewards.filter((r) => r.active !== false).map((r) => {
     const redeemed = counts[r.key] || 0;
     const remaining = r.stock == null ? null : Math.max(0, r.stock - redeemed);
     return {
@@ -228,7 +262,8 @@ const rewards = asyncHandler(async (req, res) => {
 
 // POST /api/gamification/rewards/:key/redeem
 const redeem = asyncHandler(async (req, res) => {
-  const reward = REWARDS.find((r) => r.key === req.params.key);
+  const cfg = await loadConfig(req.user.company);
+  const reward = cfg.rewards.find((r) => r.key === req.params.key && r.active !== false);
   if (!reward) throw new ApiError(404, 'Reward not found');
   const emp = await resolveEmployee(req);
   if (!emp) throw new ApiError(400, 'Your account is not linked to an employee profile.');
@@ -248,61 +283,63 @@ const redeem = asyncHandler(async (req, res) => {
   res.json({ coins: profile.coins, redeemed: reward.name });
 });
 
-// GET /api/gamification/rules  (admin console data)
+// GET /api/gamification/rules  (admin console — editable config + read-only info)
 const rules = asyncHandler(async (req, res) => {
-  const earningRules = Object.entries(EARNING)
-    .filter(([k]) => k !== 'KUDOS_GIVEN')
-    .map(([, r]) => ({ event: r.label, xp: r.xp, coins: r.coins, cap: r.cap, on: !r.off }));
-  const levelThresholds = LEVELS.filter((l) => l.level >= 6).map((l) => ({
-    level: l.level,
-    name: l.name,
-    xp: l.xp.toLocaleString() + ' XP',
-  }));
-  const badgeTriggers = BADGES.slice(0, 5).map((b) => ({ emoji: b.emoji, name: b.name, rule: b.trigger }));
-
+  const cfg = await loadConfig(req.user.company);
   const counts = await redeemedCounts(req.user.company);
   const profiles = await GamificationProfile.find({ company: req.user.company }).select('coins');
   const reds = await Redemption.find({ company: req.user.company }).select('cost');
   const redeemedCoins = reds.reduce((s, r) => s + (r.cost || 0), 0);
   const outstanding = profiles.reduce((s, p) => s + (p.coins || 0), 0);
 
-  const rewardCatalog = REWARDS.map((r) => {
-    const redeemed = counts[r.key] || 0;
-    const remaining = r.stock == null ? '∞' : Math.max(0, r.stock - redeemed);
-    const status = r.stock != null && remaining <= 3 ? 'Low stock' : 'Active';
-    return { name: `${r.emoji} ${r.name}`, cost: r.cost, stock: remaining, redeemed, status };
-  });
-
   res.json({
-    earningRules,
-    levelThresholds,
-    badgeTriggers,
-    rewardCatalog,
-    kpis: { issued: outstanding + redeemedCoins, redeemed: redeemedCoins, activeBadges: BADGES.length, budget: '₹25k' },
+    earning: cfg.earning.map((e) => ({ event: e.event, label: e.label, xp: e.xp, coins: e.coins, cap: e.cap, on: e.on })),
+    rewards: cfg.rewards.map((r) => ({
+      key: r.key, emoji: r.emoji, name: r.name, cost: r.cost, stock: r.stock, active: r.active !== false, redeemed: counts[r.key] || 0,
+    })),
+    budget: cfg.budget,
+    // Read-only reference (unlock conditions live in code)
+    badges: BADGES.map((b) => ({ emoji: b.emoji, name: b.name, rule: b.trigger })),
+    levels: LEVELS.filter((l) => l.level >= 6).map((l) => ({ level: l.level, name: l.name, xp: l.xp.toLocaleString() + ' XP' })),
+    kpis: { issued: outstanding + redeemedCoins, redeemed: redeemedCoins, activeBadges: BADGES.length, budget: cfg.budget },
   });
 });
 
-// POST /api/gamification/seed-demo  (admin) — populate profiles so the boards look alive.
-const seedDemo = asyncHandler(async (req, res) => {
-  const emps = await Employee.find({ company: req.user.company, status: 'ACTIVE' }).select('name');
-  let n = 0;
-  for (const e of emps) {
-    const p = await getOrCreate(req.user.company, e._id);
-    const base = 200 + Math.floor(Math.random() * 2200);
-    p.xp = base;
-    p.coins = Math.floor(base * 0.8);
-    p.streak = Math.floor(Math.random() * 18);
-    p.counters.checkins = Math.floor(Math.random() * 25);
-    p.counters.kudosReceived = Math.floor(Math.random() * 30);
-    p.counters.certs = Math.random() > 0.5 ? 1 : 0;
-    p.counters.goalsCompleted = Math.floor(Math.random() * 7);
-    p.counters.bugFixes = Math.floor(Math.random() * 12);
-    p.counters.timesheets = Math.floor(Math.random() * 6);
-    p.badges = evaluateBadges(p);
-    await p.save();
-    n++;
+// PUT /api/gamification/config  (admin) — save editable rules, rewards and budget.
+const slug = (s) =>
+  String(s || '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'REWARD';
+
+const updateConfig = asyncHandler(async (req, res) => {
+  const cfg = await loadConfig(req.user.company);
+  const { earning, rewards: rw, budget } = req.body;
+
+  if (Array.isArray(earning)) {
+    cfg.earning = earning
+      .filter((e) => e && e.event)
+      .map((e) => ({
+        event: e.event, label: e.label, xp: Number(e.xp) || 0, coins: Number(e.coins) || 0,
+        cap: e.cap || '—', on: e.on !== false,
+      }));
   }
-  res.json({ seeded: n });
+  if (Array.isArray(rw)) {
+    const used = new Set();
+    cfg.rewards = rw
+      .filter((r) => r && r.name && String(r.name).trim())
+      .map((r) => {
+        let key = r.key || slug(r.name);
+        while (used.has(key)) key += '_2';
+        used.add(key);
+        const raw = r.stock === '' || r.stock == null ? null : Number(r.stock);
+        return {
+          key, emoji: r.emoji || '🎁', name: String(r.name).trim(),
+          cost: Number(r.cost) || 0, stock: Number.isNaN(raw) ? null : raw, active: r.active !== false,
+        };
+      });
+  }
+  if (budget !== undefined) cfg.budget = String(budget);
+
+  await cfg.save();
+  res.json({ ok: true });
 });
 
-module.exports = { me, checkin, colleagues, kudos, award, leaderboard, badges, rewards, redeem, rules, seedDemo };
+module.exports = { me, checkin, colleagues, kudos, award, leaderboard, badges, rewards, redeem, rules, updateConfig };
