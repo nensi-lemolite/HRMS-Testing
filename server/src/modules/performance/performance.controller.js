@@ -3,6 +3,7 @@ const Goal = require('../../models/Goal');
 const AppraisalReview = require('../../models/AppraisalReview');
 const Employee = require('../../models/Employee');
 const ApiError = require('../../utils/ApiError');
+const { awardEmployee } = require('../gamification/awardService');
 
 function canSeeAll(req) {
   return (req.permissions || []).includes('performance.read.all');
@@ -41,8 +42,13 @@ const createGoal = asyncHandler(async (req, res) => {
 const updateGoal = asyncHandler(async (req, res) => {
   const goal = await Goal.findOne({ _id: req.params.id, company: req.user.company });
   if (!goal) throw new ApiError(404, 'Goal not found');
+  const wasDone = goal.status === 'DONE';
   Object.assign(goal, req.body);
   await goal.save();
+  // Auto-award points the first time a goal is completed.
+  if (!wasDone && goal.status === 'DONE') {
+    awardEmployee(goal.company, goal.employee, 'GOAL', `Goal completed: ${goal.title}`);
+  }
   res.json({ goal });
 });
 

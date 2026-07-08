@@ -4,6 +4,7 @@ const ReferralPolicy = require('../../models/ReferralPolicy');
 const Employee = require('../../models/Employee');
 const User = require('../../models/User');
 const ApiError = require('../../utils/ApiError');
+const { awardEmployee } = require('../gamification/awardService');
 
 function canSeeAll(req) {
   return (req.permissions || []).includes('referrals.read.all');
@@ -104,6 +105,7 @@ const create = asyncHandler(async (req, res) => {
 const update = asyncHandler(async (req, res) => {
   const referral = await Referral.findOne({ _id: req.params.id, company: req.user.company });
   if (!referral) throw new ApiError(404, 'Referral not found');
+  const prevStatus = referral.status;
 
   const isOwner = String(referral.referrer) === String(req.user.employee);
   const hasWrite = canWrite(req);
@@ -148,6 +150,10 @@ const update = asyncHandler(async (req, res) => {
   if (rejectionReason !== undefined) referral.rejectionReason = rejectionReason;
 
   await referral.save();
+  // Auto-award the referrer when their referral is hired.
+  if (['HIRED', 'JOINED'].includes(referral.status) && !['HIRED', 'JOINED'].includes(prevStatus) && referral.referrer) {
+    awardEmployee(referral.company, referral.referrer, 'REFERRAL', 'Referral hired');
+  }
   res.json({ referral });
 });
 

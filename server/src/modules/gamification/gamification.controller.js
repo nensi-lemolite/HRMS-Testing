@@ -1,6 +1,5 @@
 const asyncHandler = require('express-async-handler');
 const GamificationProfile = require('../../models/GamificationProfile');
-const GamificationConfig = require('../../models/GamificationConfig');
 const Redemption = require('../../models/Redemption');
 const Employee = require('../../models/Employee');
 const User = require('../../models/User');
@@ -11,13 +10,10 @@ const {
   EVENT_EMOJI,
   STAT_LABELS,
   levelFromXp,
-  evaluateBadges,
   badgeRule,
   defaultEarning,
-  defaultRewards,
-  defaultBadges,
-  defaultLevels,
 } = require('../../config/gamification');
+const { loadConfig, getOrCreate, applyAward } = require('./awardService');
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -46,63 +42,6 @@ async function resolveEmployee(req) {
     }
   }
   return null;
-}
-
-async function getOrCreate(company, employeeId) {
-  let p = await GamificationProfile.findOne({ company, employee: employeeId });
-  if (!p) p = await GamificationProfile.create({ company, employee: employeeId });
-  return p;
-}
-
-// Load (or seed from code defaults) a company's editable gamification config.
-async function loadConfig(companyId) {
-  let cfg = await GamificationConfig.findOne({ company: companyId });
-  if (!cfg) {
-    return GamificationConfig.create({
-      company: companyId,
-      earning: defaultEarning(),
-      rewards: defaultRewards(),
-      badges: defaultBadges(),
-      levels: defaultLevels(),
-    });
-  }
-  // Backfill badges/levels for configs created before they were editable.
-  let changed = false;
-  if (!cfg.badges || !cfg.badges.length) { cfg.badges = defaultBadges(); changed = true; }
-  if (!cfg.levels || !cfg.levels.length) { cfg.levels = defaultLevels(); changed = true; }
-  if (changed) await cfg.save();
-  return cfg;
-}
-
-// Effective earning rule for an action, honoring the company's config overrides.
-function ruleFor(cfg, type) {
-  const d = EARNING[type];
-  // Internal (non-editable) events always use the code defaults.
-  if (type === 'KUDOS_GIVEN') return d ? { xp: d.xp, coins: d.coins, counter: d.counter, label: d.label } : null;
-  // Editable events: a rule that was deleted (or turned off) awards nothing.
-  const c = (cfg?.earning || []).find((e) => e.event === type);
-  if (!c) return { xp: 0, coins: 0, counter: d?.counter, label: d?.label || type };
-  return {
-    xp: c.on ? Number(c.xp) || 0 : 0,
-    coins: c.on ? Number(c.coins) || 0 : 0,
-    counter: d?.counter,
-    label: c.label || d?.label || type,
-  };
-}
-
-// Apply an earning rule to a profile doc (mutates; caller saves).
-function applyAward(profile, type, cfg, labelOverride) {
-  const rule = ruleFor(cfg, type);
-  if (!rule) return { xp: 0, coins: 0, newBadges: [] };
-  profile.xp += rule.xp;
-  profile.coins += rule.coins;
-  if (rule.counter) profile.counters[rule.counter] = (profile.counters[rule.counter] || 0) + 1;
-  profile.events.push({ type, label: labelOverride || rule.label, xp: rule.xp, coins: rule.coins, at: new Date() });
-  if (profile.events.length > 30) profile.events = profile.events.slice(-30);
-  const before = new Set(profile.badges || []);
-  profile.badges = evaluateBadges(profile, cfg?.badges);
-  const newBadges = profile.badges.filter((k) => !before.has(k));
-  return { xp: rule.xp, coins: rule.coins, newBadges };
 }
 
 function summarize(profile, name, cfg) {

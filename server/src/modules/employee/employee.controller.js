@@ -10,6 +10,7 @@ const Goal = require("../../models/Goal");
 const AppraisalReview = require("../../models/AppraisalReview");
 const ApiError = require("../../utils/ApiError");
 const { getCountryProfile } = require("../../countries");
+const { awardEmployee } = require("../gamification/awardService");
 const { UPLOAD_ROOT, publicPath } = require("../../middleware/upload");
 
 // GET /api/employees
@@ -192,8 +193,15 @@ const update = asyncHandler(async (req, res) => {
   }
 
   const prevEmail = employee.email;
+  const prevCerts = (employee.certifications || []).length;
   Object.assign(employee, req.body, { country: nextCountry });
   await employee.save();
+
+  // Auto-award for each newly added certification.
+  const newCerts = (employee.certifications || []).length - prevCerts;
+  for (let i = 0; i < newCerts; i++) {
+    awardEmployee(employee.company, employee._id, 'CERT', 'Certification added');
+  }
 
   // Keep the linked sign-in account in sync when the email or name changes.
   if (req.body.email && req.body.email !== prevEmail) {
