@@ -18,6 +18,7 @@ const NAV = [
 
   { section: 'Growth' },
   { to: '/projects', label: 'Projects', icon: '🧩', perm: ['projects.read'] },
+  { to: '/performance', label: 'Performance', icon: '◎', perm: ['performance.read.all', 'performance.read.self'] },
   { to: '/offboarding', label: 'Offboarding', icon: '↩', perm: ['exit.read.all'], hideForRoles: ['EMPLOYEE'] },
 
   { section: 'Rewards' },

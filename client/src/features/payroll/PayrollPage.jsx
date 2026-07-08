@@ -85,25 +85,27 @@ export default function PayrollPage() {
       )}
 
       {tab === 'mine' && canSelf && (
-        <div className="card table-card">
-          <table className="modern-table">
-            <thead><tr><th>Month</th><th>Year</th><th style={{ textAlign: 'right' }}>Payslip</th></tr></thead>
-            <tbody>
-              {myPayslips.length === 0 ? (
-                <tr><td colSpan="3" className="empty">No payslips yet.</td></tr>
-              ) : myPayslips.map((p) => {
-                const { month, year } = periodParts(p.period);
-                return (
-                  <tr key={p._id}>
-                    <td><b>{month}</b></td>
-                    <td>{year}</td>
-                    <td style={{ textAlign: 'right' }}><button className="btn" onClick={() => setViewPayslip(p)}>View payslip</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        myPayslips.length === 0 ? (
+          <div className="card"><div className="empty">No payslips yet.</div></div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
+            {myPayslips.map((p) => {
+              const { month, year } = periodParts(p.period);
+              return (
+                <div className="card" key={p._id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-50)', color: 'var(--primary-600)', display: 'grid', placeItems: 'center', fontSize: 18 }}>🧾</div>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{month}</div>
+                      <div className="muted small">{year}</div>
+                    </div>
+                  </div>
+                  <button className="btn primary" onClick={() => setViewPayslip(p)}>View payslip</button>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {viewPayslip && (

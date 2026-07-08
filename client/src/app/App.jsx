@@ -24,6 +24,7 @@ import RewardsStorePage from '../features/gamification/RewardsStorePage';
 import RewardsAdminPage from '../features/gamification/RewardsAdminPage';
 import ProjectsPage from '../features/projects/ProjectsPage';
 import OffboardingPage from '../features/exit/OffboardingPage';
+import PerformancePage from '../features/performance/PerformancePage';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="payroll" element={<PayrollPage />} />
         <Route path="payroll/:id" element={<PayrollRunPage />} />
         <Route path="projects" element={<ProjectsPage />} />
+        <Route path="performance" element={<PerformancePage />} />
         <Route path="offboarding" element={<OffboardingPage />} />
         <Route path="achievements" element={<AchievementsPage />} />
         <Route path="leaderboard" element={<LeaderboardPage />} />
