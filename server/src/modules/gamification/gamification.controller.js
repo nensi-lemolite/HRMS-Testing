@@ -12,6 +12,9 @@ const {
   levelFromXp,
   badgeRule,
   defaultEarning,
+  defaultRewards,
+  defaultBadges,
+  defaultLevels,
 } = require('../../config/gamification');
 const { loadConfig, getOrCreate, applyAward } = require('./awardService');
 
@@ -340,4 +343,15 @@ const grant = asyncHandler(async (req, res) => {
   res.json({ awarded, employee: emp.name });
 });
 
-module.exports = { me, checkin, colleagues, kudos, award, leaderboard, badges, rewards, redeem, rules, updateConfig, grant };
+// POST /api/gamification/config/reset  (admin) — restore the code defaults (5 of each).
+const resetConfig = asyncHandler(async (req, res) => {
+  const cfg = await loadConfig(req.user.company);
+  cfg.earning = defaultEarning();
+  cfg.rewards = defaultRewards();
+  cfg.badges = defaultBadges();
+  cfg.levels = defaultLevels();
+  await cfg.save();
+  res.json({ ok: true });
+});
+
+module.exports = { me, checkin, colleagues, kudos, award, leaderboard, badges, rewards, redeem, rules, updateConfig, grant, resetConfig };

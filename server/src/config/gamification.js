@@ -3,39 +3,31 @@
 // GamificationProfile model; this file defines *what* can be earned.
 
 // Earning rules: action type -> reward + which counter it bumps.
+// The 5 editable rules below all fire automatically; KUDOS_GIVEN is internal.
 const EARNING = {
-  CHECKIN:     { label: 'Daily check-in',                xp: 10,  coins: 2,   counter: 'checkins',       cap: '1 / day' },
-  TIMESHEET:   { label: 'Timesheet submitted on time',   xp: 15,  coins: 5,   counter: 'timesheets',     cap: '1 / week' },
-  GOAL:        { label: 'Goal / OKR completed',          xp: 50,  coins: 20,  counter: 'goalsCompleted', cap: '—' },
-  CERT:        { label: 'Certification cleared',          xp: 100, coins: 50,  counter: 'certs',          cap: '—' },
-  KUDOS:       { label: 'Peer kudos received',            xp: 5,   coins: 2,   counter: 'kudosReceived',  cap: '20 / month' },
-  KUDOS_GIVEN: { label: 'Gave kudos',                     xp: 5,   coins: 0,   counter: 'kudosGiven',     cap: '—' },
-  PERFECT_ATT: { label: 'Perfect attendance (month)',     xp: 50,  coins: 25,  counter: 'perfectMonths',  cap: '1 / month' },
-  REFERRAL:    { label: 'Referral hired',                 xp: 200, coins: 100, counter: 'referrals',      cap: '—' },
-  BUGFIX:      { label: 'Critical bug fixed',             xp: 40,  coins: 10,  counter: 'bugFixes',       cap: '—' },
-  HACKATHON:   { label: 'Hackathon win',                  xp: 500, coins: 250, counter: 'hackathonWins',  cap: '—', off: true },
+  CHECKIN:     { label: 'Daily check-in',        xp: 10,  coins: 2,   counter: 'checkins',       cap: '1 / day' },
+  KUDOS:       { label: 'Peer kudos received',   xp: 5,   coins: 2,   counter: 'kudosReceived',  cap: '20 / month' },
+  GOAL:        { label: 'Goal / OKR completed',  xp: 50,  coins: 20,  counter: 'goalsCompleted', cap: '—' },
+  CERT:        { label: 'Certification cleared',  xp: 100, coins: 50,  counter: 'certs',          cap: '—' },
+  REFERRAL:    { label: 'Referral hired',         xp: 200, coins: 100, counter: 'referrals',      cap: '—' },
+  KUDOS_GIVEN: { label: 'Gave kudos',            xp: 5,   coins: 0,   counter: 'kudosGiven',     cap: '—' },
 };
 
-// Actions an employee can self-trigger from the UI (safe to award on demand).
-const SELF_ACTIONS = ['CHECKIN', 'TIMESHEET', 'GOAL', 'CERT', 'BUGFIX'];
+// Actions an employee/admin can self-trigger via the award endpoint.
+const SELF_ACTIONS = ['CHECKIN', 'GOAL', 'CERT'];
 
 // Emoji shown against a recent-win event.
 const EVENT_EMOJI = {
-  CHECKIN: '✅', TIMESHEET: '📅', GOAL: '🎯', CERT: '🎓', KUDOS: '🤝',
-  KUDOS_GIVEN: '🤝', PERFECT_ATT: '🏆', REFERRAL: '🫱', BUGFIX: '🐛', HACKATHON: '💡',
+  CHECKIN: '✅', GOAL: '🎯', CERT: '🎓', KUDOS: '🤝', KUDOS_GIVEN: '🤝', REFERRAL: '🫱',
 };
 
-// Levels — highest threshold <= xp wins.
+// Levels — highest threshold <= xp wins (5 ranks).
 const LEVELS = [
   { level: 1, name: 'Rookie', xp: 0 },
-  { level: 2, name: 'Junior', xp: 150 },
-  { level: 3, name: 'Contributor', xp: 350 },
-  { level: 4, name: 'Builder', xp: 600 },
-  { level: 5, name: 'Craftsman', xp: 800 },
-  { level: 6, name: 'Code Adept', xp: 1000 },
-  { level: 7, name: 'Code Ninja', xp: 1500 },
-  { level: 8, name: 'Tech Samurai', xp: 2000 },
-  { level: 9, name: 'Grandmaster', xp: 3000 },
+  { level: 2, name: 'Contributor', xp: 300 },
+  { level: 3, name: 'Builder', xp: 800 },
+  { level: 4, name: 'Code Ninja', xp: 1500 },
+  { level: 5, name: 'Grandmaster', xp: 3000 },
 ];
 
 // Human labels for the stats a badge can be based on (also drives the admin dropdown).
@@ -54,17 +46,13 @@ const STAT_LABELS = {
 };
 
 // Badges are data-driven: a badge unlocks when `stat` reaches `threshold`.
+// 5 badges, each tied to one of the automatic earning sources.
 const BADGES = [
-  { key: 'PERFECT_MONTH', emoji: '🏆', name: 'Perfect Month', desc: 'No absences', stat: 'checkins', threshold: 20 },
+  { key: 'CONSISTENT', emoji: '💎', name: 'Consistent', desc: '15-day streak', stat: 'streak', threshold: 15 },
+  { key: 'TEAM_PLAYER', emoji: '🤝', name: 'Team Player', desc: '25 kudos', stat: 'kudosReceived', threshold: 25 },
   { key: 'GOAL_CRUSHER', emoji: '🎯', name: 'Goal Crusher', desc: 'All goals met', stat: 'goalsCompleted', threshold: 5 },
   { key: 'CERTIFIED_PRO', emoji: '🎓', name: 'Certified Pro', desc: 'Cleared a cert', stat: 'certs', threshold: 1 },
-  { key: 'BUG_BASHER', emoji: '🐛', name: 'Bug Basher', desc: '10 prod fixes', stat: 'bugFixes', threshold: 10 },
-  { key: 'TEAM_PLAYER', emoji: '🤝', name: 'Team Player', desc: '25 kudos', stat: 'kudosReceived', threshold: 25 },
-  { key: 'ON_TIME', emoji: '📅', name: 'On Time', desc: 'Timesheet streak', stat: 'timesheets', threshold: 4 },
-  { key: 'CONSISTENT', emoji: '💎', name: 'Consistent', desc: '15-day streak', stat: 'streak', threshold: 15 },
-  { key: 'RISING_STAR', emoji: '🌟', name: 'Rising Star', desc: 'Top tier', stat: 'xp', threshold: 1500 },
   { key: 'CONNECTOR', emoji: '🫱', name: 'Connector', desc: 'Referral hired', stat: 'referrals', threshold: 1 },
-  { key: 'INNOVATOR', emoji: '💡', name: 'Innovator', desc: 'Hackathon win', stat: 'hackathonWins', threshold: 1 },
 ];
 
 // The current value of a stat on a profile.
@@ -81,13 +69,12 @@ function badgeRule(b) {
   return `${Number(b.threshold).toLocaleString()} ${STAT_LABELS[b.stat] || b.stat}`;
 }
 
-// Reward catalog — stock null means unlimited.
+// Reward catalog — stock null means unlimited (5 rewards).
 const REWARDS = [
   { key: 'AMZ500', emoji: '🎫', name: '₹500 Amazon voucher', cost: 500, stock: null },
   { key: 'WFH', emoji: '🏡', name: 'Extra WFH day', cost: 300, stock: null },
   { key: 'HALFDAY', emoji: '🌴', name: 'Half-day off', cost: 800, stock: null },
   { key: 'HOODIE', emoji: '👕', name: 'Company hoodie', cost: 400, stock: 18 },
-  { key: 'PARKING', emoji: '🅿️', name: 'Reserved parking (1 mo)', cost: 350, stock: null },
   { key: 'LUNCH', emoji: '🍕', name: 'Team lunch on us', cost: 1000, stock: 5 },
 ];
 

@@ -87,6 +87,20 @@ export default function RewardsAdminPage() {
     }
   }
 
+  async function resetDefaults() {
+    if (!window.confirm('Reset earning rules, rewards, badges and levels to the defaults (5 of each)? This replaces your current setup.')) return;
+    setSaving(true);
+    try {
+      await gapi.resetConfig();
+      celebrate('Reset to defaults ✅');
+      load();
+    } catch (e) {
+      celebrate(e?.response?.data?.error || 'Could not reset');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (state === 'error') return <div className="empty">Couldn’t load rewards admin.</div>;
   if (state === 'loading') return <div className="empty">Loading…</div>;
 
@@ -97,7 +111,10 @@ export default function RewardsAdminPage() {
           <h1>Rewards admin 🎮</h1>
           <p className="muted">Edit how employees earn and spend points. Changes apply to everyone.</p>
         </div>
-        <button className="btn primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn" onClick={resetDefaults} disabled={saving}>Reset to defaults</button>
+          <button className="btn primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
+        </div>
       </div>
 
       <div className="kpi-row">
