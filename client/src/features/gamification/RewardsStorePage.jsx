@@ -1,33 +1,29 @@
 import { useState, useEffect } from 'react';
 import './gamification.css';
 import { useCelebrate } from './celebrate.jsx';
-import { me as demoMe, rewards as demoRewards } from './data';
 import * as gapi from '../../api/gamification';
 
-export default function RewardsStorePage({ demo }) {
+export default function RewardsStorePage() {
   const { celebrate, Toast } = useCelebrate();
-  const [coins, setCoins] = useState(demo ? demoMe.coins : null);
-  const [rewards, setRewards] = useState(
-    demo ? demoRewards.map((r) => ({ ...r, key: r.name, affordable: demoMe.coins >= r.cost })) : null
-  );
-  const [state, setState] = useState(demo ? 'ready' : 'loading');
+  const [coins, setCoins] = useState(null);
+  const [rewards, setRewards] = useState(null);
+  const [state, setState] = useState('loading');
 
   function load() {
     gapi.getRewards()
       .then((d) => { setCoins(d.coins); setRewards(d.rewards); setState('ready'); })
       .catch(() => setState('error'));
   }
-  useEffect(() => { if (!demo) load(); }, [demo]);
+  useEffect(() => { load(); }, []);
 
   async function doRedeem(r) {
-    if (demo) return celebrate('Redeemed: ' + r.name + ' — enjoy!');
     try {
       const d = await gapi.redeemReward(r.key);
       setCoins(d.coins);
       celebrate('Redeemed: ' + d.redeemed + ' — enjoy!');
       load();
     } catch (e) {
-      celebrate(e?.response?.data?.message || 'Could not redeem');
+      celebrate(e?.response?.data?.error || 'Could not redeem');
     }
   }
 

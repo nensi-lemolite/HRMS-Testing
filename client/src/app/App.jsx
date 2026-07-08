@@ -24,7 +24,6 @@ import RewardsStorePage from '../features/gamification/RewardsStorePage';
 import RewardsAdminPage from '../features/gamification/RewardsAdminPage';
 import ProjectsPage from '../features/projects/ProjectsPage';
 import OffboardingPage from '../features/exit/OffboardingPage';
-import DemoShell from '../features/gamification/DemoShell';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -38,9 +37,6 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterCompanyPage />} />
-
-      {/* Public demo — preview the new modules with dummy data, no login needed. */}
-      <Route path="/demo" element={<DemoShell />} />
 
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<DashboardPage />} />

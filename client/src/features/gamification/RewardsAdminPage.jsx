@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import './gamification.css';
 import { useCelebrate } from './celebrate.jsx';
-import { earningRules, badgeTriggers, levelThresholds, rewardCatalog } from './data';
 import * as gapi from '../../api/gamification';
 
 function StatusBadge({ value }) {
@@ -13,34 +12,15 @@ function StatusBadge({ value }) {
 
 const fmt = (v) => (typeof v === 'number' ? v.toLocaleString() : v);
 
-const demoModel = {
-  kpis: { issued: '48.2k', redeemed: '31.6k', activeBadges: 16, budget: '₹25k' },
-  earningRules, badgeTriggers, levelThresholds, rewardCatalog,
-};
-
-export default function RewardsAdminPage({ demo }) {
-  const { celebrate, Toast } = useCelebrate();
-  const [m, setM] = useState(demo ? demoModel : null);
-  const [state, setState] = useState(demo ? 'ready' : 'loading');
-  const [seeding, setSeeding] = useState(false);
+export default function RewardsAdminPage() {
+  const { Toast } = useCelebrate();
+  const [m, setM] = useState(null);
+  const [state, setState] = useState('loading');
 
   function load() {
     gapi.getRules().then((d) => { setM(d); setState('ready'); }).catch(() => setState('error'));
   }
-  useEffect(() => { if (!demo) load(); }, [demo]);
-
-  async function doSeed() {
-    setSeeding(true);
-    try {
-      const d = await gapi.seedDemo();
-      celebrate(`Seeded ${d.seeded} employee profiles 🎲`);
-      load();
-    } catch {
-      celebrate('Seeding failed (admin only)');
-    } finally {
-      setSeeding(false);
-    }
-  }
+  useEffect(() => { load(); }, []);
 
   if (state === 'error') return <div className="empty">Couldn’t load rewards admin.</div>;
   if (state === 'loading' || !m) return <div className="empty">Loading…</div>;
@@ -52,11 +32,6 @@ export default function RewardsAdminPage({ demo }) {
           <h1>Rewards admin 🎮</h1>
           <p className="muted">Configure how points, badges and rewards work — admins only.</p>
         </div>
-        {!demo && (
-          <button className="btn primary" onClick={doSeed} disabled={seeding}>
-            {seeding ? 'Seeding…' : '🎲 Seed demo data'}
-          </button>
-        )}
       </div>
 
       <div className="kpi-row">

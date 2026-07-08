@@ -2,35 +2,24 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './gamification.css';
 import { useCelebrate } from './celebrate.jsx';
-import { me as demoMe, weeklyGoals as demoGoals, recentWins as demoWins, colleagues as demoColleagues } from './data';
 import * as gapi from '../../api/gamification';
 
-function demoModel() {
-  return {
-    name: demoMe.name, level: demoMe.level, levelName: demoMe.levelName, nextLevel: demoMe.nextLevel,
-    xp: demoMe.xp, xpForNext: demoMe.xpForNext, coins: demoMe.coins, streak: demoMe.streak,
-    badgesEarned: demoMe.badgesEarned, weeklyGoals: demoGoals, recentWins: demoWins,
-  };
-}
-
-export default function MySpacePage({ demo }) {
+export default function MySpacePage() {
   const { celebrate, Toast } = useCelebrate();
-  const [model, setModel] = useState(demo ? demoModel() : null);
-  const [state, setState] = useState(demo ? 'ready' : 'loading');
+  const [model, setModel] = useState(null);
+  const [state, setState] = useState('loading');
   const [kudos, setKudos] = useState(null); // { list, sel } while the picker is open
 
   useEffect(() => {
-    if (demo) return;
     gapi.getMe()
       .then((d) => {
         if (!d.hasProfile) { setState('no-profile'); return; }
         setModel(d); setState('ready');
       })
       .catch(() => setState('error'));
-  }, [demo]);
+  }, []);
 
   async function doCheckin() {
-    if (demo) return celebrate('Checked in! +10 XP 🎯');
     try {
       const d = await gapi.checkin();
       setModel(d);
@@ -38,9 +27,6 @@ export default function MySpacePage({ demo }) {
     } catch { celebrate('Check-in failed'); }
   }
   async function openKudos() {
-    if (demo) {
-      return setKudos({ list: demoColleagues, sel: demoColleagues[0].id });
-    }
     try {
       const d = await gapi.getColleagues();
       if (!d.colleagues.length) return celebrate('No colleagues to recognize yet');
@@ -51,7 +37,6 @@ export default function MySpacePage({ demo }) {
     const { list, sel } = kudos;
     const name = list.find((c) => c.id === sel)?.name;
     setKudos(null);
-    if (demo) return celebrate(`Kudos sent to ${name}! +5 XP 🤝`);
     try {
       const d = await gapi.giveKudos(sel);
       setModel(d);
@@ -106,16 +91,6 @@ export default function MySpacePage({ demo }) {
             <Link className="btn" to="/rewards">🎁 Redeem coins</Link>
             <button className="btn" onClick={openKudos}>🤝 Give kudos</button>
           </div>
-
-          <div className="card-head" style={{ marginTop: 22 }}><h2>This week’s goals</h2></div>
-          <ul className="gm-goals">
-            {model.weeklyGoals.map((g) => (
-              <li key={g.label}>
-                <span>{g.icon}</span> {g.label}
-                <span className={'g-val' + (g.done ? ' done' : '')}>{g.value}</span>
-              </li>
-            ))}
-          </ul>
         </div>
 
         <div className="card">

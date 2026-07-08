@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react';
 import './gamification.css';
-import { leaderboard as demoLeaders, teamBoard as demoTeams } from './data';
 import * as gapi from '../../api/gamification';
 
-export default function LeaderboardPage({ demo }) {
-  const [leaders, setLeaders] = useState(demo ? demoLeaders : null);
-  const [teams, setTeams] = useState(demo ? demoTeams : null);
-  const [state, setState] = useState(demo ? 'ready' : 'loading');
+export default function LeaderboardPage() {
+  const [leaders, setLeaders] = useState(null);
+  const [teams, setTeams] = useState(null);
+  const [state, setState] = useState('loading');
 
   useEffect(() => {
-    if (demo) return;
     gapi.getLeaderboard()
       .then((d) => { setLeaders(d.leaderboard); setTeams(d.teamBoard); setState('ready'); })
       .catch(() => setState('error'));
-  }, [demo]);
+  }, []);
 
   if (state === 'error') return <div className="empty">Couldn’t load the leaderboard.</div>;
   if (state === 'loading' || !leaders) return <div className="empty">Loading…</div>;
@@ -46,14 +44,18 @@ export default function LeaderboardPage({ demo }) {
 
         <div className="card">
           <div className="card-head"><h2>Team standings</h2></div>
-          {(teams || []).map((t) => (
-            <div className="gm-lb" key={t.rank}>
-              <span className="rk top">{t.rank}</span>
-              <span>{t.medal}</span>
-              <span className="nm">{t.name}</span>
-              <span className="pts">🪙 {typeof t.coins === 'number' ? t.coins.toLocaleString() : t.coins}</span>
-            </div>
-          ))}
+          {(teams || []).length === 0 ? (
+            <div className="empty small">No team points yet.</div>
+          ) : (
+            (teams || []).map((t) => (
+              <div className="gm-lb" key={t.rank}>
+                <span className="rk top">{t.rank}</span>
+                <span>{t.medal}</span>
+                <span className="nm">{t.name}</span>
+                <span className="pts">🪙 {typeof t.coins === 'number' ? t.coins.toLocaleString() : t.coins}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </>

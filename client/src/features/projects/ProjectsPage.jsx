@@ -3,7 +3,6 @@ import '../gamification/gamification.css';
 import { useCelebrate } from '../gamification/celebrate.jsx';
 import { usePerms } from '../../hooks/usePerms';
 import api from '../../api/client';
-import { projects as demoProjects, bench, colleagues as demoColleagues } from '../gamification/data';
 import * as papi from '../../api/projects';
 
 const STATUS = {
@@ -11,14 +10,13 @@ const STATUS = {
   ON_HOLD: { t: 'On hold', c: 'warn' },
   COMPLETED: { t: 'Completed', c: '' },
 };
-const DEMO_STATUS = { 'On track': 'ACTIVE', 'At risk': 'ON_HOLD' };
 
 const memberList = (arr) =>
   (arr || []).map((m) => (typeof m === 'object' && m
     ? { id: String(m._id || m.id), name: m.name || '' }
     : { id: String(m), name: '' }));
 
-const normalizeLive = (p) => ({
+const normalize = (p) => ({
   id: String(p._id),
   name: p.name,
   client: p.client || '',
@@ -26,43 +24,32 @@ const normalizeLive = (p) => ({
   tech: p.tech || [],
   members: memberList(p.members),
 });
-const normalizeDemo = (p) => ({
-  id: p.name,
-  name: p.name,
-  client: p.client || '',
-  status: DEMO_STATUS[p.status] || 'ACTIVE',
-  tech: p.stack ? p.stack.split('·').map((s) => s.trim()).filter(Boolean) : [],
-  members: [],
-});
 
-export default function ProjectsPage({ demo }) {
+export default function ProjectsPage() {
   const { can } = usePerms();
   const { celebrate, Toast } = useCelebrate();
-  const canEdit = demo || can('projects.write');
+  const canEdit = can('projects.write');
 
-  const [rows, setRows] = useState(demo ? demoProjects.map(normalizeDemo) : null);
-  const [state, setState] = useState(demo ? 'ready' : 'loading');
+  const [rows, setRows] = useState(null);
+  const [state, setState] = useState('loading');
   const [employees, setEmployees] = useState([]);
   const [draft, setDraft] = useState(null); // { mode, id, name, client, status, tech, memberIds, members, search }
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (demo) return;
     papi.listProjects()
-      .then((ps) => { setRows(ps.map(normalizeLive)); setState('ready'); })
+      .then((ps) => { setRows(ps.map(normalize)); setState('ready'); })
       .catch(() => setState('error'));
     // Employees power both the assign picker and the bench calculation.
     api.get('/employees')
       .then(({ data }) => setEmployees((data.employees || []).filter((e) => e.status !== 'EXITED')))
       .catch(() => {});
-  }, [demo]);
+  }, []);
 
-  // Options for the member picker: {id, name, label}
-  const pickerList = useMemo(() => (
-    demo
-      ? demoColleagues.map((c) => ({ id: c.id, name: c.name, label: c.name }))
-      : employees.map((e) => ({ id: String(e._id), name: e.name, label: e.name + (e.department ? ` · ${e.department}` : '') }))
-  ), [demo, employees]);
+  const pickerList = useMemo(
+    () => employees.map((e) => ({ id: String(e._id), name: e.name, label: e.name + (e.department ? ` · ${e.department}` : '') })),
+    [employees]
+  );
 
   const empName = (id) =>
     pickerList.find((o) => o.id === id)?.name ||
@@ -83,7 +70,6 @@ export default function ProjectsPage({ demo }) {
       memberIds: d.memberIds.includes(id) ? d.memberIds.filter((x) => x !== id) : [...d.memberIds, id],
     }));
   }
-
   function rowFrom(d, id) {
     return {
       id,
@@ -104,16 +90,6 @@ export default function ProjectsPage({ demo }) {
       tech: draft.tech.split(',').map((s) => s.trim()).filter(Boolean),
       members: draft.memberIds,
     };
-
-    if (demo) {
-      const row = rowFrom(draft, draft.id || draft.name.trim());
-      setRows(draft.mode === 'edit'
-        ? rows.map((r) => (r.id === draft.id ? row : r))
-        : [row, ...rows]);
-      setDraft(null);
-      return celebrate(draft.mode === 'edit' ? 'Project updated 🧩' : 'Project added 🧩');
-    }
-
     setSaving(true);
     try {
       if (draft.mode === 'edit') {
@@ -144,19 +120,12 @@ export default function ProjectsPage({ demo }) {
   );
   const benchList = employees.filter((e) => e.status === 'ACTIVE' && !activeMemberIds.has(String(e._id)));
 
-  const kpis = demo
-    ? [
-        { l: 'Active projects', v: 11 },
-        { l: 'Billable', v: '82%', foot: '▲ 4%' },
-        { l: 'On bench', v: 14, foot: 'avg 9 days' },
-        { l: 'Utilization', v: '88%' },
-      ]
-    : [
-        { l: 'Total projects', v: rows.length },
-        { l: 'Active', v: count('ACTIVE') },
-        { l: 'On bench', v: benchList.length },
-        { l: 'Completed', v: count('COMPLETED') },
-      ];
+  const kpis = [
+    { l: 'Total projects', v: rows.length },
+    { l: 'Active', v: count('ACTIVE') },
+    { l: 'On bench', v: benchList.length },
+    { l: 'Completed', v: count('COMPLETED') },
+  ];
 
   const pickerFiltered = draft
     ? pickerList.filter((o) => o.label.toLowerCase().includes(draft.search.toLowerCase()))
@@ -177,7 +146,6 @@ export default function ProjectsPage({ demo }) {
           <div className="kpi-card" key={k.l}>
             <div className="kpi-label">{k.l}</div>
             <div className="kpi-value">{k.v}</div>
-            {k.foot && <div className="kpi-foot">{k.foot}</div>}
           </div>
         ))}
       </div>
@@ -226,53 +194,30 @@ export default function ProjectsPage({ demo }) {
         </table>
       </div>
 
-      {demo ? (
-        <>
-          <h2 style={{ margin: '22px 0 12px' }}>On bench — ready to allocate</h2>
-          <div className="card table-card">
-            <table className="modern-table">
-              <thead><tr><th>Engineer</th><th>Primary skills</th><th>Bench since</th><th>Availability</th></tr></thead>
-              <tbody>
-                {bench.map((b) => (
-                  <tr key={b.name}>
-                    <td className="cell-employee"><span className="gm-avatar">{b.initials}</span><span className="cell-name">{b.name}</span></td>
-                    <td>{b.skills}</td>
-                    <td>{b.since}</td>
-                    <td><span className="badge active">{b.avail}</span></td>
+      <h2 style={{ margin: '22px 0 12px' }}>On bench — not on an active project</h2>
+      <div className="card table-card">
+        <table className="modern-table">
+          <thead><tr><th>Engineer</th><th>Primary skills</th><th>Department</th><th>Availability</th></tr></thead>
+          <tbody>
+            {benchList.length === 0 ? (
+              <tr><td colSpan="4"><div className="empty small">No one on the bench — everyone active is assigned to a project.</div></td></tr>
+            ) : (
+              benchList.map((e) => {
+                const skills = (e.skills?.length ? e.skills : e.technologyStack || []).join(', ');
+                const initials = (e.name || '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+                return (
+                  <tr key={e._id}>
+                    <td className="cell-employee"><span className="gm-avatar">{initials}</span><span className="cell-name">{e.name}</span></td>
+                    <td>{skills || '—'}</td>
+                    <td>{e.department || '—'}</td>
+                    <td><span className="badge active">Available</span></td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      ) : (
-        <>
-          <h2 style={{ margin: '22px 0 12px' }}>On bench — not on an active project</h2>
-          <div className="card table-card">
-            <table className="modern-table">
-              <thead><tr><th>Engineer</th><th>Primary skills</th><th>Department</th><th>Availability</th></tr></thead>
-              <tbody>
-                {benchList.length === 0 ? (
-                  <tr><td colSpan="4"><div className="empty small">No one on the bench — everyone active is assigned to a project.</div></td></tr>
-                ) : (
-                  benchList.map((e) => {
-                    const skills = (e.skills?.length ? e.skills : e.technologyStack || []).join(', ');
-                    const initials = (e.name || '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
-                    return (
-                      <tr key={e._id}>
-                        <td className="cell-employee"><span className="gm-avatar">{initials}</span><span className="cell-name">{e.name}</span></td>
-                        <td>{skills || '—'}</td>
-                        <td>{e.department || '—'}</td>
-                        <td><span className="badge active">Available</span></td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {draft && (
         <div className="modal-backdrop" onClick={() => setDraft(null)}>

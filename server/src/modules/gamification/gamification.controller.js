@@ -15,12 +15,6 @@ const {
   evaluateBadges,
 } = require('../../config/gamification');
 
-const WEEKLY_GOALS = [
-  { icon: '🎯', label: 'Close 5 code reviews', value: '3 / 5', done: false },
-  { icon: '📅', label: 'Submit timesheet on time', value: 'Done', done: true },
-  { icon: '🎓', label: 'Finish “Advanced MongoDB”', value: '40%', done: false },
-];
-
 // ---- helpers ---------------------------------------------------------------
 
 const initials = (name) => (name || '?').split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase();
@@ -90,7 +84,6 @@ function summarize(profile, name) {
     badgesEarned: (profile.badges || []).length,
     badgesTotal: BADGES.length,
     recentWins: wins,
-    weeklyGoals: WEEKLY_GOALS,
   };
 }
 

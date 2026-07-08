@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import './gamification.css';
-import { me as demoMe, badges as demoBadges } from './data';
 import * as gapi from '../../api/gamification';
 
-export default function AchievementsPage({ demo }) {
-  const [level, setLevel] = useState(demo ? demoMe : null);
-  const [badges, setBadges] = useState(demo ? demoBadges : null);
-  const [state, setState] = useState(demo ? 'ready' : 'loading');
+export default function AchievementsPage() {
+  const [level, setLevel] = useState(null);
+  const [badges, setBadges] = useState(null);
+  const [state, setState] = useState('loading');
 
   useEffect(() => {
-    if (demo) return;
     Promise.all([gapi.getMe(), gapi.getBadges()])
       .then(([m, b]) => {
         setLevel(m.hasProfile ? m : null);
@@ -17,7 +15,7 @@ export default function AchievementsPage({ demo }) {
         setState('ready');
       })
       .catch(() => setState('error'));
-  }, [demo]);
+  }, []);
 
   if (state === 'error') return <div className="empty">Couldn’t load achievements.</div>;
   if (state === 'loading' || !badges) return <div className="empty">Loading…</div>;
