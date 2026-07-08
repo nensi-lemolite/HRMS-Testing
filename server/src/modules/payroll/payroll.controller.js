@@ -57,7 +57,7 @@ const createRun = asyncHandler(async (req, res) => {
   let totalGross = 0, totalDeduct = 0, totalNet = 0;
   for (const emp of employees) {
     const structure = emp.salaryStructure?.length ? emp.salaryStructure : defaultStructureFor(ctry);
-    const result = profile.payrollRules.computePayslip({ components: componentsFromStructure(structure) });
+    const result = profile.payrollRules.computePayslip({ components: componentsFromStructure(structure), employee: emp });
     const slip = await Payslip.create({
       payrollRun: run._id,
       employee: emp._id,
@@ -68,7 +68,7 @@ const createRun = asyncHandler(async (req, res) => {
       gross: result.gross,
       totalDeduction: result.totalDeduction,
       net: result.net,
-      extras: result.eosAccrual ? { eosAccrual: result.eosAccrual } : {},
+      extras: result.extras || (result.eosAccrual ? { eosAccrual: result.eosAccrual } : {}),
     });
     totalGross += slip.gross;
     totalDeduct += slip.totalDeduction;

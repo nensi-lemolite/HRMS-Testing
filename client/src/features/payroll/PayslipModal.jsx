@@ -57,6 +57,16 @@ export default function PayslipModal({ payslip, employee, onClose }) {
 
         <div className="ps-net"><span>Net pay</span><span>{money(payslip.net)}</span></div>
 
+        {payslip.extras?.employer && (
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <div className="muted small" style={{ fontWeight: 700, marginBottom: 6 }}>EMPLOYER CONTRIBUTIONS (not deducted from you)</div>
+            <div className="ps-ln"><span>PF (employer)</span><span>{money(payslip.extras.employer.pf + payslip.extras.employer.eps)}</span></div>
+            {payslip.extras.employer.esi > 0 && <div className="ps-ln"><span>ESI (employer)</span><span>{money(payslip.extras.employer.esi)}</span></div>}
+            <div className="ps-ln"><span>EDLI + admin</span><span>{money(payslip.extras.employer.edli + payslip.extras.employer.admin)}</span></div>
+            <div className="ps-ln ps-total"><span>Monthly cost to company</span><span>{money(payslip.extras.ctc)}</span></div>
+          </div>
+        )}
+
         <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
           <button className="btn" onClick={onClose}>Close</button>
           <button className="btn primary" onClick={() => window.print()}>⭳ Download PDF</button>
