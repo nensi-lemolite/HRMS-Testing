@@ -67,18 +67,15 @@ export default function PayrollPage() {
       {tab === 'runs' && can('payroll.read.all') && (
         <div className="card table-card">
           <table className="modern-table">
-            <thead><tr><th>Period</th><th>Region</th><th>Status</th><th>Gross</th><th>Deductions</th><th>Net</th><th></th></tr></thead>
+            <thead><tr><th>Period</th><th>Region</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {runs.length === 0 ? (
-                <tr><td colSpan="7" className="empty">No payroll runs yet. Click "Run Payroll" to start.</td></tr>
+                <tr><td colSpan="4" className="empty">No payroll runs yet. Click "Run Payroll" to start.</td></tr>
               ) : runs.map((r) => (
                 <tr key={r._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/payroll/${r._id}`)}>
                   <td><b>{r.period}</b></td>
                   <td>{r.country}</td>
                   <td><span className={`badge ${r.status === 'FINALIZED' ? 'active' : r.status === 'PAID' ? 'active' : 'warn'}`}>{r.status}</span></td>
-                  <td>{fmt(r.totals?.gross)}</td>
-                  <td>{fmt(r.totals?.deductions)}</td>
-                  <td><b>{fmt(r.totals?.net)}</b></td>
                   <td><span className="row-link">Open →</span></td>
                 </tr>
               ))}

@@ -45,32 +45,16 @@ export default function PayrollRunPage() {
         {run.status === 'DRAFT' && <button className="btn primary" onClick={finalize} disabled={busy}>{busy ? 'Finalizing…' : 'Finalize run'}</button>}
       </div>
 
-      <div className="kpi-row">
-        <div className="kpi-card gradient">
-          <div className="kpi-label">Net</div>
-          <div className="kpi-value">{fmt(run.totals?.net)}</div>
-          <div className="kpi-foot">{payslips.length} payslip(s)</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Gross</div>
-          <div className="kpi-value">{fmt(run.totals?.gross)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Deductions</div>
-          <div className="kpi-value">{fmt(run.totals?.deductions)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Employees</div>
-          <div className="kpi-value">{payslips.length}</div>
-        </div>
-      </div>
+      <p className="muted" style={{ margin: '4px 0 16px' }}>
+        {payslips.length} employee(s) in this run. Salary is confidential — open a payslip to view amounts.
+      </p>
 
       <div className="card table-card">
         <table className="modern-table">
-          <thead><tr><th>Employee</th><th>Department</th><th>Gross</th><th>Deductions</th><th>Net</th><th></th></tr></thead>
+          <thead><tr><th>Employee</th><th>Department</th><th></th></tr></thead>
           <tbody>
             {payslips.length === 0 ? (
-              <tr><td colSpan="6" className="empty">No payslips in this run.</td></tr>
+              <tr><td colSpan="3" className="empty">No payslips in this run.</td></tr>
             ) : payslips.map((p) => (
               <tr key={p._id} style={{ cursor: 'pointer' }} onClick={() => setViewPayslip(p)}>
                 <td>
@@ -83,9 +67,6 @@ export default function PayrollRunPage() {
                   </div>
                 </td>
                 <td>{p.employee?.department || '—'}</td>
-                <td>{fmt(p.gross)}</td>
-                <td>{fmt(p.totalDeduction)}</td>
-                <td><b>{fmt(p.net)}</b></td>
                 <td><span className="row-link">View payslip →</span></td>
               </tr>
             ))}
