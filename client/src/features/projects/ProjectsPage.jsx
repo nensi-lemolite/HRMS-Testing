@@ -73,7 +73,20 @@ export default function ProjectsPage({ demo }) {
   if (state === 'error') return <div className="empty">Couldn’t load projects.</div>;
   if (state === 'loading' || !rows) return <div className="empty">Loading…</div>;
 
-  const activeCount = demo ? 11 : rows.filter((r) => r.statusText === 'Active').length;
+  const count = (t) => rows.filter((r) => r.statusText === t).length;
+  const kpis = demo
+    ? [
+        { l: 'Active projects', v: 11 },
+        { l: 'Billable', v: '82%', foot: '▲ 4%' },
+        { l: 'On bench', v: 14, foot: 'avg 9 days' },
+        { l: 'Utilization', v: '88%' },
+      ]
+    : [
+        { l: 'Total projects', v: rows.length },
+        { l: 'Active', v: count('Active') },
+        { l: 'On hold', v: count('On hold') },
+        { l: 'Completed', v: count('Completed') },
+      ];
 
   return (
     <>
@@ -86,10 +99,13 @@ export default function ProjectsPage({ demo }) {
       </div>
 
       <div className="kpi-row">
-        <div className="kpi-card"><div className="kpi-label">Active projects</div><div className="kpi-value">{activeCount}</div></div>
-        <div className="kpi-card"><div className="kpi-label">Billable</div><div className="kpi-value">82%</div><div className="kpi-foot">▲ 4%</div></div>
-        <div className="kpi-card"><div className="kpi-label">On bench</div><div className="kpi-value">{demo ? 14 : bench.length}</div><div className="kpi-foot">avg 9 days</div></div>
-        <div className="kpi-card"><div className="kpi-label">Utilization</div><div className="kpi-value">88%</div></div>
+        {kpis.map((k) => (
+          <div className="kpi-card" key={k.l}>
+            <div className="kpi-label">{k.l}</div>
+            <div className="kpi-value">{k.v}</div>
+            {k.foot && <div className="kpi-foot">{k.foot}</div>}
+          </div>
+        ))}
       </div>
 
       <div className="card table-card">
@@ -113,22 +129,26 @@ export default function ProjectsPage({ demo }) {
         </table>
       </div>
 
-      <h2 style={{ margin: '22px 0 12px' }}>On bench — ready to allocate</h2>
-      <div className="card table-card">
-        <table className="modern-table">
-          <thead><tr><th>Engineer</th><th>Primary skills</th><th>Bench since</th><th>Availability</th></tr></thead>
-          <tbody>
-            {bench.map((b) => (
-              <tr key={b.name}>
-                <td className="cell-employee"><span className="gm-avatar">{b.initials}</span><span className="cell-name">{b.name}</span></td>
-                <td>{b.skills}</td>
-                <td>{b.since}</td>
-                <td><span className="badge active">{b.avail}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {demo && (
+        <>
+          <h2 style={{ margin: '22px 0 12px' }}>On bench — ready to allocate</h2>
+          <div className="card table-card">
+            <table className="modern-table">
+              <thead><tr><th>Engineer</th><th>Primary skills</th><th>Bench since</th><th>Availability</th></tr></thead>
+              <tbody>
+                {bench.map((b) => (
+                  <tr key={b.name}>
+                    <td className="cell-employee"><span className="gm-avatar">{b.initials}</span><span className="cell-name">{b.name}</span></td>
+                    <td>{b.skills}</td>
+                    <td>{b.since}</td>
+                    <td><span className="badge active">{b.avail}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {form && (
         <div className="modal-backdrop" onClick={() => setForm(null)}>
