@@ -9,12 +9,14 @@ const {
   EARNING,
   SELF_ACTIONS,
   EVENT_EMOJI,
-  LEVELS,
-  BADGES,
+  STAT_LABELS,
   levelFromXp,
   evaluateBadges,
+  badgeRule,
   defaultEarning,
   defaultRewards,
+  defaultBadges,
+  defaultLevels,
 } = require('../../config/gamification');
 
 // ---- helpers ---------------------------------------------------------------
@@ -56,12 +58,19 @@ async function getOrCreate(company, employeeId) {
 async function loadConfig(companyId) {
   let cfg = await GamificationConfig.findOne({ company: companyId });
   if (!cfg) {
-    cfg = await GamificationConfig.create({
+    return GamificationConfig.create({
       company: companyId,
       earning: defaultEarning(),
       rewards: defaultRewards(),
+      badges: defaultBadges(),
+      levels: defaultLevels(),
     });
   }
+  // Backfill badges/levels for configs created before they were editable.
+  let changed = false;
+  if (!cfg.badges || !cfg.badges.length) { cfg.badges = defaultBadges(); changed = true; }
+  if (!cfg.levels || !cfg.levels.length) { cfg.levels = defaultLevels(); changed = true; }
+  if (changed) await cfg.save();
   return cfg;
 }
 
@@ -91,13 +100,13 @@ function applyAward(profile, type, cfg, labelOverride) {
   profile.events.push({ type, label: labelOverride || rule.label, xp: rule.xp, coins: rule.coins, at: new Date() });
   if (profile.events.length > 30) profile.events = profile.events.slice(-30);
   const before = new Set(profile.badges || []);
-  profile.badges = evaluateBadges(profile);
+  profile.badges = evaluateBadges(profile, cfg?.badges);
   const newBadges = profile.badges.filter((k) => !before.has(k));
   return { xp: rule.xp, coins: rule.coins, newBadges };
 }
 
-function summarize(profile, name) {
-  const lv = levelFromXp(profile.xp);
+function summarize(profile, name, cfg) {
+  const lv = levelFromXp(profile.xp, cfg?.levels);
   const wins = [...profile.events]
     .filter((e) => e.xp > 0)
     .slice(-6)
@@ -113,7 +122,7 @@ function summarize(profile, name) {
     coins: profile.coins,
     streak: profile.streak,
     badgesEarned: (profile.badges || []).length,
-    badgesTotal: BADGES.length,
+    badgesTotal: (cfg?.badges || []).length,
     recentWins: wins,
   };
 }
@@ -125,7 +134,8 @@ const me = asyncHandler(async (req, res) => {
   const emp = await resolveEmployee(req);
   if (!emp) return res.json({ hasProfile: false });
   const profile = await getOrCreate(req.user.company, emp._id);
-  res.json({ hasProfile: true, ...summarize(profile, emp.name), checkedInToday: isToday(profile.lastCheckin) });
+  const cfg = await loadConfig(req.user.company);
+  res.json({ hasProfile: true, ...summarize(profile, emp.name, cfg), checkedInToday: isToday(profile.lastCheckin) });
 });
 
 // POST /api/gamification/checkin
@@ -133,16 +143,16 @@ const checkin = asyncHandler(async (req, res) => {
   const emp = await resolveEmployee(req);
   if (!emp) throw new ApiError(400, 'Your account is not linked to an employee profile.');
   const profile = await getOrCreate(req.user.company, emp._id);
+  const cfg = await loadConfig(req.user.company);
 
   if (isToday(profile.lastCheckin)) {
-    return res.json({ alreadyCheckedIn: true, ...summarize(profile, emp.name), checkedInToday: true });
+    return res.json({ alreadyCheckedIn: true, ...summarize(profile, emp.name, cfg), checkedInToday: true });
   }
   profile.streak = isYesterday(profile.lastCheckin) ? profile.streak + 1 : 1;
   profile.lastCheckin = new Date();
-  const cfg = await loadConfig(req.user.company);
   const awarded = applyAward(profile, 'CHECKIN', cfg);
   await profile.save();
-  res.json({ awarded, ...summarize(profile, emp.name), checkedInToday: true });
+  res.json({ awarded, ...summarize(profile, emp.name, cfg), checkedInToday: true });
 });
 
 // GET /api/gamification/colleagues — pickable recipients for kudos.
@@ -173,7 +183,7 @@ const kudos = asyncHandler(async (req, res) => {
   const gp = await getOrCreate(req.user.company, giver._id);
   const awarded = applyAward(gp, 'KUDOS_GIVEN', cfg, `Gave kudos to ${recipient.name}`);
   await gp.save();
-  res.json({ awarded, to: recipient ? recipient.name : null, ...summarize(gp, giver.name) });
+  res.json({ awarded, to: recipient ? recipient.name : null, ...summarize(gp, giver.name, cfg) });
 });
 
 // POST /api/gamification/award  { type }
@@ -186,7 +196,7 @@ const award = asyncHandler(async (req, res) => {
   const cfg = await loadConfig(req.user.company);
   const awarded = applyAward(profile, type, cfg);
   await profile.save();
-  res.json({ awarded, ...summarize(profile, emp.name) });
+  res.json({ awarded, ...summarize(profile, emp.name, cfg) });
 });
 
 // GET /api/gamification/leaderboard
@@ -216,6 +226,7 @@ const leaderboard = asyncHandler(async (req, res) => {
 
 // GET /api/gamification/badges
 const badges = asyncHandler(async (req, res) => {
+  const cfg = await loadConfig(req.user.company);
   const emp = await resolveEmployee(req);
   let earned = [];
   if (emp) {
@@ -223,7 +234,9 @@ const badges = asyncHandler(async (req, res) => {
     earned = p.badges || [];
   }
   res.json({
-    badges: BADGES.map((b) => ({ emoji: b.emoji, name: b.name, desc: b.desc, earned: earned.includes(b.key) })),
+    badges: cfg.badges
+      .filter((b) => b.enabled !== false)
+      .map((b) => ({ emoji: b.emoji, name: b.name, desc: b.desc, earned: earned.includes(b.key) })),
   });
 });
 
@@ -300,10 +313,18 @@ const rules = asyncHandler(async (req, res) => {
       key: r.key, emoji: r.emoji, name: r.name, cost: r.cost, stock: r.stock, active: r.active !== false, redeemed: counts[r.key] || 0,
     })),
     budget: cfg.budget,
-    // Read-only reference (unlock conditions live in code)
-    badges: BADGES.map((b) => ({ emoji: b.emoji, name: b.name, rule: b.trigger })),
-    levels: LEVELS.filter((l) => l.level >= 6).map((l) => ({ level: l.level, name: l.name, xp: l.xp.toLocaleString() + ' XP' })),
-    kpis: { issued: outstanding + redeemedCoins, redeemed: redeemedCoins, activeBadges: BADGES.length, budget: cfg.budget },
+    badges: cfg.badges.map((b) => ({
+      key: b.key, emoji: b.emoji, name: b.name, desc: b.desc, stat: b.stat,
+      threshold: b.threshold, enabled: b.enabled !== false, rule: badgeRule(b),
+    })),
+    levels: cfg.levels.slice().sort((a, b) => a.xp - b.xp).map((l) => ({ level: l.level, name: l.name, xp: l.xp })),
+    stats: STAT_LABELS,
+    kpis: {
+      issued: outstanding + redeemedCoins,
+      redeemed: redeemedCoins,
+      activeBadges: cfg.badges.filter((b) => b.enabled !== false).length,
+      budget: cfg.budget,
+    },
   });
 });
 
@@ -337,6 +358,25 @@ const updateConfig = asyncHandler(async (req, res) => {
           cost: Number(r.cost) || 0, stock: Number.isNaN(raw) ? null : raw, active: r.active !== false,
         };
       });
+  }
+  if (Array.isArray(req.body.badges)) {
+    const usedB = new Set();
+    cfg.badges = req.body.badges
+      .filter((b) => b && b.name && String(b.name).trim())
+      .map((b) => {
+        let key = b.key || slug(b.name);
+        while (usedB.has(key)) key += '_2';
+        usedB.add(key);
+        return {
+          key, emoji: b.emoji || '🏅', name: String(b.name).trim(), desc: b.desc || '',
+          stat: b.stat || 'xp', threshold: Number(b.threshold) || 0, enabled: b.enabled !== false,
+        };
+      });
+  }
+  if (Array.isArray(req.body.levels)) {
+    cfg.levels = req.body.levels
+      .filter((l) => l && l.name && String(l.name).trim())
+      .map((l, i) => ({ level: Number(l.level) || i + 1, name: String(l.name).trim(), xp: Number(l.xp) || 0 }));
   }
   if (budget !== undefined) cfg.budget = String(budget);
 

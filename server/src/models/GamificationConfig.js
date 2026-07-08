@@ -24,11 +24,35 @@ const RewardSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const BadgeSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true },
+    emoji: { type: String, default: '🏅' },
+    name: { type: String, required: true },
+    desc: String,
+    stat: { type: String, default: 'xp' }, // checkins, streak, kudosReceived, xp, ...
+    threshold: { type: Number, default: 1 },
+    enabled: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const LevelSchema = new mongoose.Schema(
+  {
+    level: Number,
+    name: String,
+    xp: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const GamificationConfigSchema = new mongoose.Schema(
   {
     company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true, unique: true },
     earning: { type: [EarnSchema], default: [] },
     rewards: { type: [RewardSchema], default: [] },
+    badges: { type: [BadgeSchema], default: [] },
+    levels: { type: [LevelSchema], default: [] },
     budget: { type: String, default: '₹25,000' },
   },
   { timestamps: true }

@@ -13,8 +13,10 @@ export default function RewardsAdminPage() {
   const [saving, setSaving] = useState(false);
   const [earning, setEarning] = useState([]);
   const [rewards, setRewards] = useState([]);
+  const [badges, setBadges] = useState([]);
+  const [levels, setLevels] = useState([]);
   const [budget, setBudget] = useState('');
-  const [ref, setRef] = useState({ badges: [], levels: [], kpis: {}, catalog: [] });
+  const [ref, setRef] = useState({ kpis: {}, catalog: [], stats: {} });
   const [employees, setEmployees] = useState([]);
   const [award, setAward] = useState({ emp: '', event: '' });
   const [granting, setGranting] = useState(false);
@@ -24,8 +26,10 @@ export default function RewardsAdminPage() {
       .then((d) => {
         setEarning(d.earning || []);
         setRewards(d.rewards || []);
+        setBadges(d.badges || []);
+        setLevels(d.levels || []);
         setBudget(d.budget || '');
-        setRef({ badges: d.badges || [], levels: d.levels || [], kpis: d.kpis || {}, catalog: d.earningCatalog || [] });
+        setRef({ kpis: d.kpis || {}, catalog: d.earningCatalog || [], stats: d.stats || {} });
         setState('ready');
       })
       .catch(() => setState('error'));
@@ -62,10 +66,18 @@ export default function RewardsAdminPage() {
   const addReward = () => setRewards([...rewards, { key: '', emoji: '🎁', name: '', cost: 0, stock: '', active: true, redeemed: 0 }]);
   const removeReward = (i) => setRewards(rewards.filter((_, idx) => idx !== i));
 
+  const setB = (i, k, v) => setBadges(badges.map((b, idx) => (idx === i ? { ...b, [k]: v } : b)));
+  const addBadge = () => setBadges([...badges, { key: '', emoji: '🏅', name: '', desc: '', stat: 'xp', threshold: 1, enabled: true }]);
+  const removeBadge = (i) => setBadges(badges.filter((_, idx) => idx !== i));
+
+  const setL = (i, k, v) => setLevels(levels.map((l, idx) => (idx === i ? { ...l, [k]: v } : l)));
+  const addLevel = () => setLevels([...levels, { level: (levels[levels.length - 1]?.level || 0) + 1, name: '', xp: 0 }]);
+  const removeLevel = (i) => setLevels(levels.filter((_, idx) => idx !== i));
+
   async function save() {
     setSaving(true);
     try {
-      await gapi.updateConfig({ earning, rewards, budget });
+      await gapi.updateConfig({ earning, rewards, badges, levels, budget });
       celebrate('Rewards settings saved ✅');
       load();
     } catch (e) {
@@ -181,25 +193,60 @@ export default function RewardsAdminPage() {
         </table>
       </div>
 
-      <div className="gm-2col" style={{ marginTop: 22 }}>
-        <div className="card">
-          <div className="card-head"><h2>Badge triggers</h2></div>
-          <p className="muted small" style={{ marginTop: -6 }}>Unlock conditions (fixed).</p>
-          <ul className="gm-goals">
-            {ref.badges.map((b) => (
-              <li key={b.name}><span>{b.emoji}</span> {b.name}<span className="g-val">{b.rule}</span></li>
-            ))}
-          </ul>
-        </div>
-        <div className="card">
-          <div className="card-head"><h2>Level thresholds</h2></div>
-          <p className="muted small" style={{ marginTop: -6 }}>XP needed per level (fixed).</p>
-          <ul className="gm-goals">
-            {ref.levels.map((l) => (
-              <li key={l.level}>Level {l.level} · {l.name}<span className="g-val">{l.xp}</span></li>
-            ))}
-          </ul>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '22px 0 4px' }}>
+        <h2 style={{ margin: 0 }}>Badges</h2>
+        <button className="btn" onClick={addBadge}>＋ Add badge</button>
+      </div>
+      <p className="muted small" style={{ margin: '0 0 12px' }}>A badge unlocks when an employee’s stat reaches the threshold.</p>
+      <div className="card table-card">
+        <table className="modern-table">
+          <thead><tr><th style={{ width: 56 }}>Icon</th><th>Name</th><th>Unlocks on</th><th style={{ width: 100 }}>Threshold</th><th style={{ width: 60 }}>On</th><th style={{ width: 50 }}></th></tr></thead>
+          <tbody>
+            {badges.length === 0 ? (
+              <tr><td colSpan="6"><div className="empty small">No badges. Click “Add badge”.</div></td></tr>
+            ) : (
+              badges.map((b, i) => (
+                <tr key={i}>
+                  <td><input value={b.emoji} onChange={(e) => setB(i, 'emoji', e.target.value)} style={{ ...cell, width: 44, textAlign: 'center' }} /></td>
+                  <td><input value={b.name} onChange={(e) => setB(i, 'name', e.target.value)} style={{ ...cell, width: '100%' }} placeholder="Team Player" /></td>
+                  <td>
+                    <select value={b.stat} onChange={(e) => setB(i, 'stat', e.target.value)} style={{ ...cell, width: 190 }}>
+                      {Object.entries(ref.stats).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                    </select>
+                  </td>
+                  <td><input type="number" value={b.threshold} onChange={(e) => setB(i, 'threshold', e.target.value)} style={{ ...cell, width: 84 }} /></td>
+                  <td><input type="checkbox" checked={b.enabled !== false} onChange={(e) => setB(i, 'enabled', e.target.checked)} /></td>
+                  <td><button className="btn ghost" onClick={() => removeBadge(i)} title="Delete badge">🗑</button></td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '22px 0 4px' }}>
+        <h2 style={{ margin: 0 }}>Levels</h2>
+        <button className="btn" onClick={addLevel}>＋ Add level</button>
+      </div>
+      <p className="muted small" style={{ margin: '0 0 12px' }}>Total XP needed to reach each rank.</p>
+      <div className="card table-card">
+        <table className="modern-table">
+          <thead><tr><th style={{ width: 90 }}>Level</th><th>Name</th><th style={{ width: 140 }}>XP needed</th><th style={{ width: 50 }}></th></tr></thead>
+          <tbody>
+            {levels.length === 0 ? (
+              <tr><td colSpan="4"><div className="empty small">No levels. Click “Add level”.</div></td></tr>
+            ) : (
+              levels.map((l, i) => (
+                <tr key={i}>
+                  <td><input type="number" value={l.level} onChange={(e) => setL(i, 'level', e.target.value)} style={{ ...cell, width: 64 }} /></td>
+                  <td><input value={l.name} onChange={(e) => setL(i, 'name', e.target.value)} style={{ ...cell, width: '100%' }} placeholder="Code Ninja" /></td>
+                  <td><input type="number" value={l.xp} onChange={(e) => setL(i, 'xp', e.target.value)} style={{ ...cell, width: 120 }} /></td>
+                  <td><button className="btn ghost" onClick={() => removeLevel(i)} title="Delete level">🗑</button></td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {Toast}

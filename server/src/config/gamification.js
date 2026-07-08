@@ -38,19 +38,48 @@ const LEVELS = [
   { level: 9, name: 'Grandmaster', xp: 3000 },
 ];
 
-// Badges + the condition that unlocks them (evaluated from profile stats).
+// Human labels for the stats a badge can be based on (also drives the admin dropdown).
+const STAT_LABELS = {
+  checkins: 'check-ins',
+  timesheets: 'on-time timesheets',
+  goalsCompleted: 'goals completed',
+  certs: 'certifications',
+  kudosReceived: 'kudos received',
+  bugFixes: 'bug fixes',
+  referrals: 'referrals hired',
+  hackathonWins: 'hackathon wins',
+  streak: 'day check-in streak',
+  xp: 'XP',
+  coins: 'coins',
+};
+
+// Badges are data-driven: a badge unlocks when `stat` reaches `threshold`.
 const BADGES = [
-  { key: 'PERFECT_MONTH', emoji: '🏆', name: 'Perfect Month', desc: 'No absences', trigger: '20 check-ins in a month', test: (p) => p.counters.checkins >= 20 },
-  { key: 'GOAL_CRUSHER', emoji: '🎯', name: 'Goal Crusher', desc: 'All goals met', trigger: '5 goals completed', test: (p) => p.counters.goalsCompleted >= 5 },
-  { key: 'CERTIFIED_PRO', emoji: '🎓', name: 'Certified Pro', desc: 'Cleared a cert', trigger: 'Any certification', test: (p) => p.counters.certs >= 1 },
-  { key: 'BUG_BASHER', emoji: '🐛', name: 'Bug Basher', desc: '10 prod fixes', trigger: '10 bug fixes', test: (p) => p.counters.bugFixes >= 10 },
-  { key: 'TEAM_PLAYER', emoji: '🤝', name: 'Team Player', desc: '25 kudos', trigger: '25 kudos received', test: (p) => p.counters.kudosReceived >= 25 },
-  { key: 'ON_TIME', emoji: '📅', name: 'On Time', desc: 'Timesheet streak', trigger: '4 on-time timesheets', test: (p) => p.counters.timesheets >= 4 },
-  { key: 'CONSISTENT', emoji: '💎', name: 'Consistent', desc: '15-day streak', trigger: '15-day check-in streak', test: (p) => p.streak >= 15 },
-  { key: 'RISING_STAR', emoji: '🌟', name: 'Rising Star', desc: 'Top tier', trigger: 'Reach 1,500 XP', test: (p) => p.xp >= 1500 },
-  { key: 'CONNECTOR', emoji: '🫱', name: 'Connector', desc: 'Referral hired', trigger: '1 referral hired', test: (p) => p.counters.referrals >= 1 },
-  { key: 'INNOVATOR', emoji: '💡', name: 'Innovator', desc: 'Hackathon win', trigger: 'Win a hackathon', test: (p) => p.counters.hackathonWins >= 1 },
+  { key: 'PERFECT_MONTH', emoji: '🏆', name: 'Perfect Month', desc: 'No absences', stat: 'checkins', threshold: 20 },
+  { key: 'GOAL_CRUSHER', emoji: '🎯', name: 'Goal Crusher', desc: 'All goals met', stat: 'goalsCompleted', threshold: 5 },
+  { key: 'CERTIFIED_PRO', emoji: '🎓', name: 'Certified Pro', desc: 'Cleared a cert', stat: 'certs', threshold: 1 },
+  { key: 'BUG_BASHER', emoji: '🐛', name: 'Bug Basher', desc: '10 prod fixes', stat: 'bugFixes', threshold: 10 },
+  { key: 'TEAM_PLAYER', emoji: '🤝', name: 'Team Player', desc: '25 kudos', stat: 'kudosReceived', threshold: 25 },
+  { key: 'ON_TIME', emoji: '📅', name: 'On Time', desc: 'Timesheet streak', stat: 'timesheets', threshold: 4 },
+  { key: 'CONSISTENT', emoji: '💎', name: 'Consistent', desc: '15-day streak', stat: 'streak', threshold: 15 },
+  { key: 'RISING_STAR', emoji: '🌟', name: 'Rising Star', desc: 'Top tier', stat: 'xp', threshold: 1500 },
+  { key: 'CONNECTOR', emoji: '🫱', name: 'Connector', desc: 'Referral hired', stat: 'referrals', threshold: 1 },
+  { key: 'INNOVATOR', emoji: '💡', name: 'Innovator', desc: 'Hackathon win', stat: 'hackathonWins', threshold: 1 },
 ];
+
+// The current value of a stat on a profile.
+function statValue(profile, stat) {
+  if (stat === 'xp') return profile.xp || 0;
+  if (stat === 'coins') return profile.coins || 0;
+  if (stat === 'streak') return profile.streak || 0;
+  return (profile.counters && profile.counters[stat]) || 0;
+}
+
+// A readable "trigger" line for a badge def.
+function badgeRule(b) {
+  if (b.stat === 'certs' && Number(b.threshold) === 1) return 'Any certification';
+  return `${Number(b.threshold).toLocaleString()} ${STAT_LABELS[b.stat] || b.stat}`;
+}
 
 // Reward catalog — stock null means unlimited.
 const REWARDS = [
@@ -62,14 +91,12 @@ const REWARDS = [
   { key: 'LUNCH', emoji: '🍕', name: 'Team lunch on us', cost: 1000, stock: 5 },
 ];
 
-function levelFromXp(xp) {
-  let current = LEVELS[0];
+function levelFromXp(xp, levelDefs) {
+  const src = (levelDefs && levelDefs.length ? levelDefs : LEVELS).slice().sort((a, b) => a.xp - b.xp);
+  let current = src[0];
   let next = null;
-  for (let i = 0; i < LEVELS.length; i++) {
-    if (xp >= LEVELS[i].xp) {
-      current = LEVELS[i];
-      next = LEVELS[i + 1] || null;
-    }
+  for (let i = 0; i < src.length; i++) {
+    if (xp >= src[i].xp) { current = src[i]; next = src[i + 1] || null; }
   }
   return {
     level: current.level,
@@ -79,11 +106,12 @@ function levelFromXp(xp) {
   };
 }
 
-// Returns the full set of earned badge keys for a profile.
-function evaluateBadges(profile) {
+// Returns the full set of earned badge keys for a profile, given the badge defs.
+function evaluateBadges(profile, badgeDefs) {
+  const defs = badgeDefs && badgeDefs.length ? badgeDefs : BADGES;
   const earned = new Set(profile.badges || []);
-  for (const b of BADGES) {
-    if (b.test(profile)) earned.add(b.key);
+  for (const b of defs) {
+    if (b.enabled !== false && statValue(profile, b.stat) >= (Number(b.threshold) || 0)) earned.add(b.key);
   }
   return [...earned];
 }
@@ -97,6 +125,12 @@ function defaultEarning() {
 function defaultRewards() {
   return REWARDS.map((r) => ({ key: r.key, emoji: r.emoji, name: r.name, cost: r.cost, stock: r.stock, active: true }));
 }
+function defaultBadges() {
+  return BADGES.map((b) => ({ ...b, enabled: true }));
+}
+function defaultLevels() {
+  return LEVELS.map((l) => ({ ...l }));
+}
 
 module.exports = {
   EARNING,
@@ -105,8 +139,12 @@ module.exports = {
   LEVELS,
   BADGES,
   REWARDS,
+  STAT_LABELS,
   levelFromXp,
   evaluateBadges,
+  badgeRule,
   defaultEarning,
   defaultRewards,
+  defaultBadges,
+  defaultLevels,
 };
