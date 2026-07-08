@@ -3,18 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { usePerms } from '../../hooks/usePerms';
 import { useAuth } from '../../context/AuthContext';
+import PayslipModal, { periodParts } from './PayslipModal';
 
 function fmt(n) {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n || 0);
+  return '₹' + new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(n || 0);
 }
 
 export default function PayrollPage() {
   const { can } = usePerms();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState(can('payroll.run') ? 'runs' : 'mine');
+  // A SUPER_ADMIN has no employee record, so no personal payslips.
+  const isSuper = user?.role === 'SUPER_ADMIN';
+  const canSelf = can('payroll.read.self') && !isSuper;
+  const [tab, setTab] = useState(can('payroll.run') || !canSelf ? 'runs' : 'mine');
   const [runs, setRuns] = useState([]);
   const [myPayslips, setMyPayslips] = useState([]);
+  const [viewPayslip, setViewPayslip] = useState(null);
   const [tick, setTick] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
@@ -26,7 +31,7 @@ export default function PayrollPage() {
 
   useEffect(() => {
     if (can('payroll.read.all')) api.get('/payroll/runs').then(({ data }) => setRuns(data.runs)).catch(() => {});
-    if (can('payroll.read.self')) api.get('/payroll/payslips/me').then(({ data }) => setMyPayslips(data.payslips)).catch(() => {});
+    if (canSelf) api.get('/payroll/payslips/me').then(({ data }) => setMyPayslips(data.payslips)).catch(() => {});
   }, [tick]);
 
   const createRun = async (e) => {
@@ -56,7 +61,7 @@ export default function PayrollPage() {
 
       <div className="tabs-row">
         {can('payroll.read.all') && <button className={`btn ${tab === 'runs' ? 'primary' : ''}`} onClick={() => setTab('runs')}>Runs</button>}
-        {can('payroll.read.self') && <button className={`btn ${tab === 'mine' ? 'primary' : ''}`} onClick={() => setTab('mine')}>My Payslips</button>}
+        {canSelf && <button className={`btn ${tab === 'mine' ? 'primary' : ''}`} onClick={() => setTab('mine')}>My Payslips</button>}
       </div>
 
       {tab === 'runs' && can('payroll.read.all') && (
@@ -82,25 +87,32 @@ export default function PayrollPage() {
         </div>
       )}
 
-      {tab === 'mine' && can('payroll.read.self') && (
+      {tab === 'mine' && canSelf && (
         <div className="card table-card">
           <table className="modern-table">
-            <thead><tr><th>Period</th><th>Gross</th><th>Deductions</th><th>Net</th><th></th></tr></thead>
+            <thead><tr><th>Month</th><th>Year</th><th>Gross</th><th>Net pay</th><th></th></tr></thead>
             <tbody>
               {myPayslips.length === 0 ? (
                 <tr><td colSpan="5" className="empty">No payslips yet.</td></tr>
-              ) : myPayslips.map((p) => (
-                <tr key={p._id}>
-                  <td><b>{p.period}</b></td>
-                  <td>{fmt(p.gross)}</td>
-                  <td>{fmt(p.totalDeduction)}</td>
-                  <td><b>{fmt(p.net)}</b></td>
-                  <td><button className="btn" onClick={() => alert(JSON.stringify(p, null, 2))}>View</button></td>
-                </tr>
-              ))}
+              ) : myPayslips.map((p) => {
+                const { month, year } = periodParts(p.period);
+                return (
+                  <tr key={p._id}>
+                    <td><b>{month}</b></td>
+                    <td>{year}</td>
+                    <td>{fmt(p.gross)}</td>
+                    <td><b>{fmt(p.net)}</b></td>
+                    <td><button className="btn" onClick={() => setViewPayslip(p)}>View payslip</button></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      )}
+
+      {viewPayslip && (
+        <PayslipModal payslip={viewPayslip} employee={{ name: user?.name }} onClose={() => setViewPayslip(null)} />
       )}
 
       {showCreate && (

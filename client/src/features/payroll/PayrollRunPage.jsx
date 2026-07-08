@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../api/client';
+import PayslipModal from './PayslipModal';
 
 function fmt(n) {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n || 0);
+  return '₹' + new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(n || 0);
 }
 
 export default function PayrollRunPage() {
   const { id } = useParams();
   const [run, setRun] = useState(null);
   const [payslips, setPayslips] = useState([]);
+  const [viewPayslip, setViewPayslip] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const load = () => api.get(`/payroll/runs/${id}`).then(({ data }) => {
@@ -65,12 +67,12 @@ export default function PayrollRunPage() {
 
       <div className="card table-card">
         <table className="modern-table">
-          <thead><tr><th>Employee</th><th>Department</th><th>Gross</th><th>Deductions</th><th>Net</th></tr></thead>
+          <thead><tr><th>Employee</th><th>Department</th><th>Gross</th><th>Deductions</th><th>Net</th><th></th></tr></thead>
           <tbody>
             {payslips.length === 0 ? (
-              <tr><td colSpan="5" className="empty">No payslips in this run.</td></tr>
+              <tr><td colSpan="6" className="empty">No payslips in this run.</td></tr>
             ) : payslips.map((p) => (
-              <tr key={p._id}>
+              <tr key={p._id} style={{ cursor: 'pointer' }} onClick={() => setViewPayslip(p)}>
                 <td>
                   <div className="cell-employee">
                     <div className="avatar small">{(p.employee?.name || '?').split(' ').map(x => x[0]).slice(0,2).join('').toUpperCase()}</div>
@@ -84,11 +86,16 @@ export default function PayrollRunPage() {
                 <td>{fmt(p.gross)}</td>
                 <td>{fmt(p.totalDeduction)}</td>
                 <td><b>{fmt(p.net)}</b></td>
+                <td><span className="row-link">View payslip →</span></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {viewPayslip && (
+        <PayslipModal payslip={viewPayslip} employee={viewPayslip.employee} onClose={() => setViewPayslip(null)} />
+      )}
     </div>
   );
 }

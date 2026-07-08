@@ -779,6 +779,19 @@ code {
   text-align: center;
 }
 
+/* Payslip sheet */
+.ps-ln { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px dashed var(--border); }
+.ps-ln.ps-total { font-weight: 600; border-bottom: none; }
+.ps-net { display: flex; justify-content: space-between; font-weight: 700; font-size: 16px; margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--text); }
+
+/* Print only the payslip sheet (browser "Save as PDF" gives a clean download) */
+@media print {
+  body * { visibility: hidden; }
+  .payslip-sheet, .payslip-sheet * { visibility: visible; }
+  .payslip-sheet { position: absolute; left: 0; top: 0; width: 100%; max-width: none; box-shadow: none; border: none; margin: 0; padding: 24px; }
+  .no-print { display: none !important; }
+}
+
 /* Error pill */
 .error {
   color: #991b1b;
