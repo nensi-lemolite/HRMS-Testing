@@ -7,7 +7,9 @@ const list = asyncHandler(async (req, res) => {
   const filter = { company: req.user.company };
   if (req.query.status) filter.status = req.query.status;
   if (req.query.memberId) filter.members = req.query.memberId;
-  const projects = await Project.find(filter).sort({ createdAt: -1 });
+  const projects = await Project.find(filter)
+    .populate('members', 'name empCode designation')
+    .sort({ createdAt: -1 });
   res.json({ projects });
 });
 

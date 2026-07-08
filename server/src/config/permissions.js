@@ -94,7 +94,7 @@ const ROLE_PERMISSIONS = {
     'settings.read',
     'documents.read.self',
     'assets.read.self',
-    'projects.read',
+    'projects.read', 'projects.write',
     'performance.read.self', 'performance.write',
     'exit.read.all',
     'referrals.refer', 'referrals.read.self', 'referrals.read.all',
