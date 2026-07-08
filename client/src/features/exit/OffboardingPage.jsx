@@ -1,7 +1,32 @@
 import '../gamification/gamification.css';
 import { offboarding as ex } from '../gamification/data';
 
-export default function OffboardingPage() {
+export default function OffboardingPage({ demo }) {
+  // Live page: no dummy data. A real per-employee exit/F&F flow isn't built yet,
+  // so show an honest empty state instead of the illustrative example.
+  if (!demo) {
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <h1>Offboarding</h1>
+            <p className="muted">Resignations, clearance checklists and full &amp; final settlement.</p>
+          </div>
+        </div>
+        <div className="card">
+          <div className="empty">
+            No offboarding in progress.
+            <div className="muted small" style={{ marginTop: 6 }}>
+              Offboarding is started from an employee’s profile when they resign — clearances and the
+              full &amp; final settlement will appear here.
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Demo showcase only (dummy data) — illustrates the intended layout.
   return (
     <>
       <div className="page-header">
@@ -60,7 +85,7 @@ export default function OffboardingPage() {
         <button className="btn primary">Approve &amp; settle F&amp;F</button>
       </div>
       <p className="muted small" style={{ marginTop: 12 }}>
-        Gratuity applies after 5 years of service; leave encashment and gratuity reuse the payroll engine.
+        Illustrative demo. Gratuity applies after 5 years of service; leave encashment and gratuity reuse the payroll engine.
       </p>
     </>
   );
