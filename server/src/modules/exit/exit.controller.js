@@ -3,15 +3,22 @@ const ExitChecklist = require('../../models/ExitChecklist');
 const Employee = require('../../models/Employee');
 const ApiError = require('../../utils/ApiError');
 
-// GET /api/exit?employeeId=...
+// GET /api/exit            -> list every offboarding for the company
+// GET /api/exit?employeeId= -> the single checklist for that employee
 const getForEmployee = asyncHandler(async (req, res) => {
   const { employeeId } = req.query;
-  if (!employeeId) throw new ApiError(400, 'employeeId is required');
-  const checklist = await ExitChecklist.findOne({
-    company: req.user.company,
-    employee: employeeId,
-  });
-  res.json({ checklist: checklist || null });
+  const empFields = 'name empCode designation department status exitDate';
+
+  if (employeeId) {
+    const checklist = await ExitChecklist.findOne({ company: req.user.company, employee: employeeId })
+      .populate('employee', empFields);
+    return res.json({ checklist: checklist || null });
+  }
+
+  const checklists = await ExitChecklist.find({ company: req.user.company })
+    .populate('employee', empFields)
+    .sort({ updatedAt: -1 });
+  res.json({ checklists });
 });
 
 // POST /api/exit  (upsert by employee)
