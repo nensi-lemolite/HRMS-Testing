@@ -51,11 +51,10 @@ export default function ProjectsPage({ demo }) {
     papi.listProjects()
       .then((ps) => { setRows(ps.map(normalizeLive)); setState('ready'); })
       .catch(() => setState('error'));
-    if (can('projects.write')) {
-      api.get('/employees')
-        .then(({ data }) => setEmployees((data.employees || []).filter((e) => e.status !== 'EXITED')))
-        .catch(() => {});
-    }
+    // Employees power both the assign picker and the bench calculation.
+    api.get('/employees')
+      .then(({ data }) => setEmployees((data.employees || []).filter((e) => e.status !== 'EXITED')))
+      .catch(() => {});
   }, [demo]);
 
   // Options for the member picker: {id, name, label}
@@ -138,6 +137,13 @@ export default function ProjectsPage({ demo }) {
   if (state === 'loading' || !rows) return <div className="empty">Loading…</div>;
 
   const count = (s) => rows.filter((r) => r.status === s).length;
+
+  // Bench = active employees not a member of any ACTIVE project.
+  const activeMemberIds = new Set(
+    rows.filter((r) => r.status === 'ACTIVE').flatMap((r) => r.members.map((m) => m.id))
+  );
+  const benchList = employees.filter((e) => e.status === 'ACTIVE' && !activeMemberIds.has(String(e._id)));
+
   const kpis = demo
     ? [
         { l: 'Active projects', v: 11 },
@@ -148,7 +154,7 @@ export default function ProjectsPage({ demo }) {
     : [
         { l: 'Total projects', v: rows.length },
         { l: 'Active', v: count('ACTIVE') },
-        { l: 'On hold', v: count('ON_HOLD') },
+        { l: 'On bench', v: benchList.length },
         { l: 'Completed', v: count('COMPLETED') },
       ];
 
@@ -220,7 +226,7 @@ export default function ProjectsPage({ demo }) {
         </table>
       </div>
 
-      {demo && (
+      {demo ? (
         <>
           <h2 style={{ margin: '22px 0 12px' }}>On bench — ready to allocate</h2>
           <div className="card table-card">
@@ -235,6 +241,33 @@ export default function ProjectsPage({ demo }) {
                     <td><span className="badge active">{b.avail}</span></td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <>
+          <h2 style={{ margin: '22px 0 12px' }}>On bench — not on an active project</h2>
+          <div className="card table-card">
+            <table className="modern-table">
+              <thead><tr><th>Engineer</th><th>Primary skills</th><th>Department</th><th>Availability</th></tr></thead>
+              <tbody>
+                {benchList.length === 0 ? (
+                  <tr><td colSpan="4"><div className="empty small">No one on the bench — everyone active is assigned to a project.</div></td></tr>
+                ) : (
+                  benchList.map((e) => {
+                    const skills = (e.skills?.length ? e.skills : e.technologyStack || []).join(', ');
+                    const initials = (e.name || '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+                    return (
+                      <tr key={e._id}>
+                        <td className="cell-employee"><span className="gm-avatar">{initials}</span><span className="cell-name">{e.name}</span></td>
+                        <td>{skills || '—'}</td>
+                        <td>{e.department || '—'}</td>
+                        <td><span className="badge active">Available</span></td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
