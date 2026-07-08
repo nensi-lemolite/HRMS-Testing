@@ -17,8 +17,8 @@ const NAV = [
   { to: '/assets', label: 'Assets', icon: '💻', perm: ['assets.read.all', 'assets.read.self'], hideForRoles: ['EMPLOYEE'] },
 
   { section: 'Growth' },
-  { to: '/projects', label: 'Projects', icon: '🧩', perm: null },
-  { to: '/offboarding', label: 'Offboarding', icon: '↩', perm: null, hideForRoles: ['EMPLOYEE'] },
+  { to: '/projects', label: 'Projects', icon: '🧩', perm: ['projects.read'] },
+  { to: '/offboarding', label: 'Offboarding', icon: '↩', perm: ['exit.read.all'], hideForRoles: ['EMPLOYEE'] },
 
   { section: 'Rewards' },
   // Personal rewards views need an employee profile — hidden for SUPER_ADMIN.
