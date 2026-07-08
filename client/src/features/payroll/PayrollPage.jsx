@@ -90,19 +90,17 @@ export default function PayrollPage() {
       {tab === 'mine' && canSelf && (
         <div className="card table-card">
           <table className="modern-table">
-            <thead><tr><th>Month</th><th>Year</th><th>Gross</th><th>Net pay</th><th></th></tr></thead>
+            <thead><tr><th>Month</th><th>Year</th><th style={{ textAlign: 'right' }}>Payslip</th></tr></thead>
             <tbody>
               {myPayslips.length === 0 ? (
-                <tr><td colSpan="5" className="empty">No payslips yet.</td></tr>
+                <tr><td colSpan="3" className="empty">No payslips yet.</td></tr>
               ) : myPayslips.map((p) => {
                 const { month, year } = periodParts(p.period);
                 return (
                   <tr key={p._id}>
                     <td><b>{month}</b></td>
                     <td>{year}</td>
-                    <td>{fmt(p.gross)}</td>
-                    <td><b>{fmt(p.net)}</b></td>
-                    <td><button className="btn" onClick={() => setViewPayslip(p)}>View payslip</button></td>
+                    <td style={{ textAlign: 'right' }}><button className="btn" onClick={() => setViewPayslip(p)}>View payslip</button></td>
                   </tr>
                 );
               })}
