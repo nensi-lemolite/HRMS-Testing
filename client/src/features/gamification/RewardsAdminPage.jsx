@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './gamification.css';
 import { useCelebrate } from './celebrate.jsx';
+import api from '../../api/client';
 import * as gapi from '../../api/gamification';
 
 const fmt = (v) => (typeof v === 'number' ? v.toLocaleString() : v);
@@ -14,6 +15,9 @@ export default function RewardsAdminPage() {
   const [rewards, setRewards] = useState([]);
   const [budget, setBudget] = useState('');
   const [ref, setRef] = useState({ badges: [], levels: [], kpis: {}, catalog: [] });
+  const [employees, setEmployees] = useState([]);
+  const [award, setAward] = useState({ emp: '', event: '' });
+  const [granting, setGranting] = useState(false);
 
   function load() {
     gapi.getRules()
@@ -27,6 +31,26 @@ export default function RewardsAdminPage() {
       .catch(() => setState('error'));
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    api.get('/employees')
+      .then(({ data }) => setEmployees((data.employees || []).filter((e) => e.status === 'ACTIVE')))
+      .catch(() => {});
+  }, []);
+
+  async function doGrant() {
+    if (!award.emp || !award.event) return;
+    setGranting(true);
+    try {
+      const d = await gapi.grant(award.emp, award.event);
+      const label = (earning.find((r) => r.event === award.event) || {}).label || 'points';
+      celebrate(`${label}: +${d.awarded.coins} 🪙 to ${d.employee}`);
+      setAward({ emp: '', event: '' });
+    } catch (e) {
+      celebrate(e?.response?.data?.error || 'Could not award');
+    } finally {
+      setGranting(false);
+    }
+  }
 
   const setE = (i, k, v) => setEarning(earning.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
   const removeEarning = (i) => setEarning(earning.filter((_, idx) => idx !== i));
@@ -107,6 +131,26 @@ export default function RewardsAdminPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <h2 style={{ margin: '22px 0 4px' }}>Award points</h2>
+      <p className="muted small" style={{ margin: '0 0 12px' }}>Grant coins/XP to an employee for something they did (a cert, a shipped goal, a bug fix).</p>
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select value={award.emp} onChange={(e) => setAward({ ...award, emp: e.target.value })} style={{ ...cell, minWidth: 200 }}>
+            <option value="">Select employee…</option>
+            {employees.map((e) => <option key={e._id} value={e._id}>{e.name}{e.department ? ` · ${e.department}` : ''}</option>)}
+          </select>
+          <select value={award.event} onChange={(e) => setAward({ ...award, event: e.target.value })} style={{ ...cell, minWidth: 220 }}>
+            <option value="">Select action…</option>
+            {earning.filter((r) => r.on !== false).map((r) => (
+              <option key={r.event} value={r.event}>{r.label} (+{r.coins} 🪙)</option>
+            ))}
+          </select>
+          <button className="btn primary" onClick={doGrant} disabled={granting || !award.emp || !award.event}>
+            {granting ? 'Awarding…' : 'Award'}
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '22px 0 4px' }}>

@@ -344,4 +344,21 @@ const updateConfig = asyncHandler(async (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = { me, checkin, colleagues, kudos, award, leaderboard, badges, rewards, redeem, rules, updateConfig };
+// POST /api/gamification/grant  { employee, event }  (admin) — award an action to an employee.
+const grant = asyncHandler(async (req, res) => {
+  const { employee, event } = req.body;
+  if (!employee || !event) throw new ApiError(400, 'employee and event are required');
+  const type = String(event).toUpperCase();
+  if (type === 'KUDOS_GIVEN' || !EARNING[type]) throw new ApiError(400, 'Unknown earning action');
+
+  const emp = await Employee.findOne({ _id: employee, company: req.user.company });
+  if (!emp) throw new ApiError(404, 'Employee not found');
+
+  const cfg = await loadConfig(req.user.company);
+  const profile = await getOrCreate(req.user.company, emp._id);
+  const awarded = applyAward(profile, type, cfg, `${EARNING[type].label} (granted)`);
+  await profile.save();
+  res.json({ awarded, employee: emp.name });
+});
+
+module.exports = { me, checkin, colleagues, kudos, award, leaderboard, badges, rewards, redeem, rules, updateConfig, grant };

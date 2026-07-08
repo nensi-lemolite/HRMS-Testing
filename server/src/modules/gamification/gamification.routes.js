@@ -12,6 +12,7 @@ const {
   redeem,
   rules,
   updateConfig,
+  grant,
 } = require('./gamification.controller');
 
 const router = express.Router();
@@ -31,5 +32,6 @@ router.post('/rewards/:key/redeem', redeem);
 // Admin console
 router.get('/rules', rules);
 router.put('/config', requireRole('SUPER_ADMIN', 'HR_ADMIN'), updateConfig);
+router.post('/grant', requireRole('SUPER_ADMIN', 'HR_ADMIN'), grant);
 
 module.exports = router;

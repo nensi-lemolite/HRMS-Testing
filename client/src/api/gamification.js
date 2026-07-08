@@ -11,3 +11,4 @@ export const getRewards = () => api.get('/gamification/rewards').then((r) => r.d
 export const redeemReward = (key) => api.post(`/gamification/rewards/${key}/redeem`).then((r) => r.data);
 export const getRules = () => api.get('/gamification/rules').then((r) => r.data);
 export const updateConfig = (body) => api.put('/gamification/config', body).then((r) => r.data);
+export const grant = (employee, event) => api.post('/gamification/grant', { employee, event }).then((r) => r.data);
