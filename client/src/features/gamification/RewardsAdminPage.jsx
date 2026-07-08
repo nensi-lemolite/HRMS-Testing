@@ -13,7 +13,7 @@ export default function RewardsAdminPage() {
   const [earning, setEarning] = useState([]);
   const [rewards, setRewards] = useState([]);
   const [budget, setBudget] = useState('');
-  const [ref, setRef] = useState({ badges: [], levels: [], kpis: {} });
+  const [ref, setRef] = useState({ badges: [], levels: [], kpis: {}, catalog: [] });
 
   function load() {
     gapi.getRules()
@@ -21,7 +21,7 @@ export default function RewardsAdminPage() {
         setEarning(d.earning || []);
         setRewards(d.rewards || []);
         setBudget(d.budget || '');
-        setRef({ badges: d.badges || [], levels: d.levels || [], kpis: d.kpis || {} });
+        setRef({ badges: d.badges || [], levels: d.levels || [], kpis: d.kpis || {}, catalog: d.earningCatalog || [] });
         setState('ready');
       })
       .catch(() => setState('error'));
@@ -29,6 +29,11 @@ export default function RewardsAdminPage() {
   useEffect(() => { load(); }, []);
 
   const setE = (i, k, v) => setEarning(earning.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const removeEarning = (i) => setEarning(earning.filter((_, idx) => idx !== i));
+  const addEarning = (event) => {
+    const c = ref.catalog.find((x) => x.event === event);
+    if (c) setEarning([...earning, { ...c }]);
+  };
   const setR = (i, k, v) => setRewards(rewards.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
   const addReward = () => setRewards([...rewards, { key: '', emoji: '🎁', name: '', cost: 0, stock: '', active: true, redeemed: 0 }]);
   const removeReward = (i) => setRewards(rewards.filter((_, idx) => idx !== i));
@@ -69,21 +74,37 @@ export default function RewardsAdminPage() {
         </div>
       </div>
 
-      <h2 style={{ margin: '4px 0 4px' }}>Earning rules</h2>
-      <p className="muted small" style={{ margin: '0 0 12px' }}>How many points each action gives, and whether it’s on.</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 4px' }}>
+        <h2 style={{ margin: 0 }}>Earning rules</h2>
+        {(() => {
+          const missing = ref.catalog.filter((c) => !earning.some((e) => e.event === c.event));
+          return missing.length ? (
+            <select value="" onChange={(e) => { if (e.target.value) addEarning(e.target.value); }} style={{ ...cell, width: 200 }}>
+              <option value="">＋ Add rule…</option>
+              {missing.map((c) => <option key={c.event} value={c.event}>{c.label}</option>)}
+            </select>
+          ) : null;
+        })()}
+      </div>
+      <p className="muted small" style={{ margin: '0 0 12px' }}>How many points each action gives, and whether it’s on. Delete a rule to stop it awarding.</p>
       <div className="card table-card">
         <table className="modern-table">
-          <thead><tr><th>Event</th><th style={{ width: 90 }}>XP</th><th style={{ width: 90 }}>Coins</th><th style={{ width: 120 }}>Cap</th><th style={{ width: 70 }}>On</th></tr></thead>
+          <thead><tr><th>Event</th><th style={{ width: 90 }}>XP</th><th style={{ width: 90 }}>Coins</th><th style={{ width: 120 }}>Cap</th><th style={{ width: 60 }}>On</th><th style={{ width: 50 }}></th></tr></thead>
           <tbody>
-            {earning.map((r, i) => (
-              <tr key={r.event}>
-                <td>{r.label}</td>
-                <td><input type="number" value={r.xp} onChange={(e) => setE(i, 'xp', e.target.value)} style={{ ...cell, width: 74 }} /></td>
-                <td><input type="number" value={r.coins} onChange={(e) => setE(i, 'coins', e.target.value)} style={{ ...cell, width: 74 }} /></td>
-                <td><input value={r.cap} onChange={(e) => setE(i, 'cap', e.target.value)} style={{ ...cell, width: 104 }} /></td>
-                <td><input type="checkbox" checked={r.on !== false} onChange={(e) => setE(i, 'on', e.target.checked)} /></td>
-              </tr>
-            ))}
+            {earning.length === 0 ? (
+              <tr><td colSpan="6"><div className="empty small">No earning rules. Use “Add rule” to restore one.</div></td></tr>
+            ) : (
+              earning.map((r, i) => (
+                <tr key={r.event}>
+                  <td>{r.label}</td>
+                  <td><input type="number" value={r.xp} onChange={(e) => setE(i, 'xp', e.target.value)} style={{ ...cell, width: 74 }} /></td>
+                  <td><input type="number" value={r.coins} onChange={(e) => setE(i, 'coins', e.target.value)} style={{ ...cell, width: 74 }} /></td>
+                  <td><input value={r.cap} onChange={(e) => setE(i, 'cap', e.target.value)} style={{ ...cell, width: 104 }} /></td>
+                  <td><input type="checkbox" checked={r.on !== false} onChange={(e) => setE(i, 'on', e.target.checked)} /></td>
+                  <td><button className="btn ghost" onClick={() => removeEarning(i)} title="Delete rule">🗑</button></td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

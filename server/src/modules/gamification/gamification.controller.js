@@ -67,17 +67,18 @@ async function loadConfig(companyId) {
 
 // Effective earning rule for an action, honoring the company's config overrides.
 function ruleFor(cfg, type) {
-  const c = (cfg?.earning || []).find((e) => e.event === type);
   const d = EARNING[type];
-  if (c) {
-    return {
-      xp: c.on ? Number(c.xp) || 0 : 0,
-      coins: c.on ? Number(c.coins) || 0 : 0,
-      counter: d?.counter,
-      label: c.label || d?.label || type,
-    };
-  }
-  return d ? { xp: d.xp, coins: d.coins, counter: d.counter, label: d.label } : null;
+  // Internal (non-editable) events always use the code defaults.
+  if (type === 'KUDOS_GIVEN') return d ? { xp: d.xp, coins: d.coins, counter: d.counter, label: d.label } : null;
+  // Editable events: a rule that was deleted (or turned off) awards nothing.
+  const c = (cfg?.earning || []).find((e) => e.event === type);
+  if (!c) return { xp: 0, coins: 0, counter: d?.counter, label: d?.label || type };
+  return {
+    xp: c.on ? Number(c.xp) || 0 : 0,
+    coins: c.on ? Number(c.coins) || 0 : 0,
+    counter: d?.counter,
+    label: c.label || d?.label || type,
+  };
 }
 
 // Apply an earning rule to a profile doc (mutates; caller saves).
@@ -294,6 +295,7 @@ const rules = asyncHandler(async (req, res) => {
 
   res.json({
     earning: cfg.earning.map((e) => ({ event: e.event, label: e.label, xp: e.xp, coins: e.coins, cap: e.cap, on: e.on })),
+    earningCatalog: defaultEarning(), // full set of possible events, for re-adding deleted rules
     rewards: cfg.rewards.map((r) => ({
       key: r.key, emoji: r.emoji, name: r.name, cost: r.cost, stock: r.stock, active: r.active !== false, redeemed: counts[r.key] || 0,
     })),
